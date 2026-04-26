@@ -1,0 +1,23 @@
+=== OCR QUALITY ===
+
+Total documents: 21171
+Kept documents: 20547
+Removed: 624
+
+Average score:
+year
+1973    0.421719
+1978    0.428675
+1981    0.423922
+1988    0.424751
+1993    0.430274
+Name: score, dtype: float64
+
+Median length:
+year
+1973    728.0
+1978    800.0
+1981    602.0
+1988    501.5
+1993    619.0
+Name: tokens, dtype: float64
