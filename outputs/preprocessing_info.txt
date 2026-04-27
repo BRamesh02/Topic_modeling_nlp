@@ -1,32 +1,36 @@
 === PREPROCESSING INFO ===
 
-Initial documents: 20547
-Documents kept after preprocessing: 20547
-Documents removed after preprocessing: 0
+Initial documents: 21158
+Documents kept after preprocessing: 21156
+Documents removed after preprocessing: 2
+Stopwords used: 700
 
 === TOKEN COUNTS ===
 
-Average tokens before: 703.25
-Average tokens after: 646.27
-Average reduction: 8.10%
+Average tokens before: 711.93
+Average tokens after: 329.18
+Average reduction: 53.76%
 
 Token distribution after preprocessing:
-count    20547.000000
-mean       646.268993
-std        332.632171
-min         52.000000
-25%        397.000000
-50%        581.000000
-75%        834.000000
-max       3695.000000
+count    21158.000000
+mean       329.180499
+std        180.836762
+min         24.000000
+25%        201.000000
+50%        295.000000
+75%        427.000000
+max       2567.000000
 
 === TOKEN DISTRIBUTION BY YEAR ===
 
        count        mean   min    50%     max
 year                                         
-1973  3722.0  736.569318  56.0  662.0  2502.0
-1978  4700.0  761.369787  78.0  735.0  3695.0
-1981  3016.0  605.919430  89.0  542.0  2607.0
-1988  3427.0  507.661803  61.0  450.0  2364.0
-1993  5682.0  596.925378  52.0  553.0  3065.0
+1973  3841.0  374.621973  35.0  334.0  1687.0
+1978  4823.0  378.664317  48.0  370.0  2567.0
+1981  3120.0  309.124359  51.0  274.0  1574.0
+1988  3539.0  261.354620  24.0  232.0  1122.0
+1993  5835.0  310.227592  26.0  290.0  1782.0
 
+=== POLITICAL WORDS EXPLICITLY KEPT ===
+
+agriculture, candidat, candidate, chomage, chômage, droite, ecole, economie, election, emploi, entreprise, etat, europe, famille, femme, femmes, france, français, française, gauche, immigration, impot, impôt, jeunesse, justice, liberte, liberté, logement, nation, national, nationale, ouvriere, ouvriers, ouvrière, parti, peuple, politique, pouvoir, reforme, republique, réforme, république, salaire, sante, santé, securite, social, sécurité, travail, travailleurs, vote, école, économie, élection, état

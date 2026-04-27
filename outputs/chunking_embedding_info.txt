@@ -1,53 +1,53 @@
 === CHUNKING + EMBEDDING INFO ===
 
-Input documents: 20547
-Chunks created: 114027
-Average chunks per document: 5.55
+Input documents: 21156
+Chunks created: 61357
+Average chunks per document: 2.90
 
 Chunk size: 150
 Chunk overlap: 30
 Minimum chunk words: 40
 
 Embedding model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
-Embedding matrix shape: (114027, 384)
+Embedding matrix shape: (61357, 384)
 
 Chunk length distribution:
-count    114027.000000
-mean        140.985661
-std          23.945375
-min          40.000000
-25%         150.000000
-50%         150.000000
-75%         150.000000
-max         150.000000
+count    61357.000000
+mean       133.034813
+std         30.601484
+min         40.000000
+25%        127.000000
+50%        150.000000
+75%        150.000000
+max        150.000000
 
 Chunks by year:
 year
-1973    23456
-1978    30478
-1981    15710
-1988    15189
-1993    29194
+1973    12655
+1978    16105
+1981     8463
+1988     8199
+1993    15935
 
 Top political supports by chunks:
 titulaire-soutien
-non mentionné                                                          17824
-Parti communiste français                                              15029
-Lutte ouvrière                                                         10029
-Parti socialiste                                                        8031
-Front national                                                          7922
-Parti socialiste unifié                                                 3089
-Rassemblement pour la République;Union pour la démocratie française     3030
-Rassemblement pour la République                                        3021
-Ligue communiste révolutionnaire                                        1877
-Union pour la démocratie française;Rassemblement pour la République     1737
-Union des républicains de progrès                                       1610
-Parti socialiste;Mouvement des radicaux de gauche                       1518
-Verts;Génération écologie                                               1379
-Union pour la démocratie française                                      1067
-Parti des forces nouvelles                                               945
-Ligue communiste                                                         924
-Mouvement réformateur                                                    913
-Mouvement des radicaux de gauche                                         890
-Nouveaux écologistes du rassemblement nature et animaux                  779
-indépendant                                                              765
+non mentionné                                                          9925
+Parti communiste français                                              7972
+Parti socialiste                                                       4605
+Front national                                                         4481
+Lutte ouvrière                                                         4349
+Rassemblement pour la République                                       1696
+Rassemblement pour la République;Union pour la démocratie française    1674
+Parti socialiste unifié                                                1602
+Union pour la démocratie française;Rassemblement pour la République    1068
+Ligue communiste révolutionnaire                                        935
+Union des républicains de progrès                                       877
+Verts;Génération écologie                                               807
+Parti socialiste;Mouvement des radicaux de gauche                       806
+Union pour la démocratie française                                      583
+Mouvement réformateur                                                   506
+Parti des forces nouvelles                                              472
+Mouvement des radicaux de gauche                                        471
+Ligue communiste                                                        437
+indépendant                                                             417
+Nouveaux écologistes du rassemblement nature et animaux                 390
