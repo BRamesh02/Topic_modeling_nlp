@@ -12,15 +12,6 @@ Electoral manifestos provide a structured and comparable form of political commu
 
 The project covers the full pipeline from raw OCR text and metadata to candidate-level thematic profiles, hypothesis tests on inter-party clustering and specialisation, and a sentiment analysis on shared topics.
 
-The current repository implements:
-
-- A two-track preprocessing strategy (light cleaning for embeddings, lemmatised + stopword-pruned for c-TF-IDF and LDA)
-- Sentence-transformer embeddings on overlapping 150-word chunks
-- BERTopic with tuned hyperparameters (UMAP + HDBSCAN + class-based TF-IDF, outlier reassignment, manual topic-count reduction)
-- LDA as a methodological cross-check
-- Document-level aggregation, family mapping (7 political families), 2D projections
-- A four-step cartographic analysis: topic interpretability (LDA + BERTopic convergence), inter-family clustering (Purity / ARI / NMI on document profiles), thematic specialisation (chi-square + Cramér's V on the family × topic table), and tonal divergence on shared topics (sentiment range)
-
 This project was conducted as part of the ENSAE course **Natural Language Processing (2025–2026)**, given by C. Kermorvant. The full project report can be found in the `report/` folder.
 
 ---
@@ -32,10 +23,6 @@ This project follows the BERTopic methodology introduced by Grootendorst (2022),
 > Grootendorst, M. (2022). *BERTopic: Neural topic modeling with a class-based TF-IDF procedure.* arXiv:2203.05794
 >
 > Blei, D., Ng, A., & Jordan, M. (2003). *Latent Dirichlet Allocation.* Journal of Machine Learning Research, 3, 993–1022.
->
-> Stoltz, D., & Taylor, M. (2021). *Cultural cartography with word embeddings.* Poetics.
->
-> Gonthier, F. (2024). *Qui veut réformer la démocratie ? Une analyse computationnelle des professions de foi électorales en France (2015–2024).*
 
 ---
 
@@ -133,31 +120,6 @@ Each pipeline step writes to its own folder following the convention `outputs/NN
 The orchestrator script `13_run_all.py` exposes flags `--from`, `--to`, `--skip`, `--continue-on-error`, and `--dry-run` for partial re-runs.
 </details>
 
-<details>
-<summary><strong>report/</strong></summary>
-
-```text
-├── main.tex                        # NeurIPS template entry point
-├── neurips_2026.sty                # Style file
-├── references.bib                  # Bibliography
-└── documents/
-    ├── p2_related_work.tex         # State of the art
-    ├── p3_data.tex                 # Corpus and preprocessing
-    ├── p4_method.tex               # BERTopic theory + LDA baseline
-    ├── p5_implementation.tex       # Hyperparameter tuning + topic coherence validation
-    ├── p6_results.tex              # Cartographic analysis: interpretability, clustering, specialisation, tonality
-    ├── p7_discussion.tex           # Limitations and incidental findings
-    └── p8_conclusion.tex           # Conclusion
-```
-</details>
-
-<details>
-<summary><strong>ntbks/</strong></summary>
-
-```text
-└── nlp-lab-topic.ipynb             # Exploratory notebook (early prototyping)
-```
-</details>
 
 ---
 
@@ -431,20 +393,7 @@ Outputs (under `outputs/12_sentiment/`):
 
 ## Current Results
 
-The repository ships with output artefacts for all 12 steps on the configured corpus (21,156 documents over five legislative elections).
-
-### Headline findings
-
-| Question | Indicator | Value |
-|---|---|---|
-| Are the induced topics substantively meaningful? | c_v coherence (LDA, 10 topics) + qualitative convergence with BERTopic | 0.66 |
-| Do thematic profiles cluster by political family? | Purity (embedding profile, k=7) | 0.54 |
-| Are some families thematically more distinctive than others? | Cramér's V (chi-square on family × topic, 30 topics) | 0.55 |
-| When families share a topic, do they frame it the same way? | Max range of family-mean sentiment on shared topics | 0.9 on [-1, 1] |
-
-### Side finding
-
-A by-product of the validation procedure (Step 12, sanity digest) revealed that several political organisations (Lutte Ouvrière, Front National, ecologist movements, Parti des Travailleurs) circulate centrally produced campaign templates that local candidates sign verbatim. The chunk-duplication ratio within those topics is around 4 candidates per unique chunk text, against approximately 1 for governmental parties (PS, RPR, UDF). This regularity, observable directly in the topic representations without any additional metadata, suggests that topic models can be repurposed as indicators of organisational discipline.
+put result
 
 ### Hardware and runtime
 
