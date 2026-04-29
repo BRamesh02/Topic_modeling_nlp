@@ -1,42 +1,12 @@
 """
-Step 14 — Sentiment by Party x Topic (Brian's H5)
+Step 12 — Sentiment by party_family x topic on shared topics.
 
-Tests Brian's specific question:
-  "When two parties discuss the same topic, do they present it with the same tone?"
-
-Method:
-1. Score each chunk with cmarkea/distilcamembert-base-sentiment.
-   5-star labels are mapped to a continuous score in [-1, 1] via the expected
-   rating: score = (E[stars] - 3) / 2.
-2. Aggregate per (party_family, topic) and per (party_family, topic, year).
-3. Filter SHARED topics: keep only topics where ≥MIN_PARTIES parties each have
-   ≥MIN_CHUNKS scored chunks. This is the prerequisite for "two parties
-   discussing the same topic".
-4. Polarization metrics per shared topic:
-   - range  = max(mean_sentiment) - min(mean_sentiment) across parties
-   - std    = standard deviation of party means
-   - max(|delta|) and which two parties produce it
-5. Qualitative output: for the top-K most polarized shared topics, extract the
-   3 most positive chunks (from the highest-sentiment party) and the 3 most
-   negative (from the lowest-sentiment party). This material goes into the
-   report to show concrete tonal differences.
-6. Bonus: sentiment per (party, topic, year) — bridge with Clément's temporal
-   analysis. Shows whether a party's tone on a topic shifts across elections.
-
-Inputs:
-  outputs/07_bertopic/chunks_with_topics.csv
-  outputs/07_bertopic/topic_info.csv             (optional, for topic labels)
-  outputs/09_doc_topic_vectors/doc_party_family.csv
-
-Outputs in outputs/12_sentiment/:
-  chunks_with_sentiment.csv                      (score cache)
-  sentiment_by_party_topic.csv
-  sentiment_by_party_topic_year.csv
-  shared_topics_polarization.csv
-  reports/qualitative_extracts.txt
-  reports/sentiment_info.txt
-  figures/sentiment_heatmap.png
-  figures/polarized_topics_box.png
+Score each chunk with cmarkea/distilcamembert-base-sentiment, map the 5-star
+output to a continuous score in [-1, 1] via the expected rating
+(E[stars] - 3) / 2, then aggregate per family x topic. A topic is "shared" if
+at least MIN_PARTIES families pass MIN_CHUNKS_PER_CELL on it. For each shared
+topic we report the range and std of family means, plus qualitative extracts
+(top positive and top negative chunks of the most polarised cells).
 """
 
 from __future__ import annotations
@@ -58,6 +28,7 @@ OUTPUTS = PROJECT_ROOT / "outputs"
 CHUNKS_PATH = OUTPUTS / "07_bertopic" / "chunks_with_topics.csv"
 PARTY_FAMILY_PATH = OUTPUTS / "09_doc_topic_vectors" / "doc_party_family.csv"
 TOPIC_INFO_PATH = OUTPUTS / "07_bertopic" / "topic_info.csv"
+TOPIC_LABELS_PATH = OUTPUTS / "07_bertopic" / "topic_labels.csv"
 
 STEP_DIR = OUTPUTS / "12_sentiment"
 FIG_DIR = STEP_DIR / "figures"
@@ -88,13 +59,9 @@ DEFAULT_MODEL = "cmarkea/distilcamembert-base-sentiment"
 DEFAULT_BATCH_SIZE = 32
 DEFAULT_MAX_LENGTH = 256
 
-# Cell filter (party x topic): keep only cells with ≥this many chunks
 DEFAULT_MIN_CHUNKS_PER_CELL = 10
-# Shared-topic filter: a topic is "shared" if ≥this many parties pass MIN_CHUNKS_PER_CELL
 DEFAULT_MIN_PARTIES = 3
-# Number of polarized topics to drill into qualitatively
 DEFAULT_TOP_K_POLARIZED = 8
-# Number of extracts per (party, topic) in qualitative output
 DEFAULT_EXTRACTS_PER_CELL = 3
 
 
@@ -104,12 +71,7 @@ def score_chunks(
     batch_size: int,
     max_length: int,
 ) -> np.ndarray:
-    """Returns continuous sentiment score in [-1, 1].
-
-    cmarkea/distilcamembert-base-sentiment outputs 5 labels: '1 étoile' .. '5 étoiles'.
-    We compute expected rating E[stars] = sum_k k * P(k), then map to [-1, 1] via
-    (E - 3) / 2 so 1★ → -1, 3★ → 0, 5★ → +1.
-    """
+    """Continuous sentiment score in [-1, 1] from the 5-star CamemBERT classifier."""
     import torch
     from transformers import (
         pipeline,
@@ -158,7 +120,7 @@ def score_chunks(
                 if digit is None:
                     continue
                 if digit == 0:
-                    digit = 1  # LABEL_0..LABEL_4 → 1..5
+                    digit = 1
                 expected += digit * r["score"]
                 total += r["score"]
 
@@ -175,13 +137,30 @@ def score_chunks(
     return scores
 
 
-def load_topic_labels(path: Path) -> dict[int, str]:
+def load_topic_auto_names(path: Path) -> dict[int, str]:
     if not path.exists():
         return {}
     info = pd.read_csv(path)
     if "Topic" not in info.columns or "Name" not in info.columns:
         return {}
     return dict(zip(info["Topic"].astype(int), info["Name"].astype(str)))
+
+
+def load_topic_labels(path: Path = TOPIC_LABELS_PATH) -> dict[int, str]:
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path)
+    if "topic_id" not in df.columns or "label" not in df.columns:
+        return {}
+    df = df[df["label"].notna()]
+    return dict(zip(df["topic_id"].astype(int), df["label"].astype(str)))
+
+
+def topic_display_name(tid: int, labels: dict[int, str] | None = None, max_len: int = 50) -> str:
+    if labels and tid in labels and labels[tid]:
+        label = labels[tid]
+        return label if len(label) <= max_len else label[: max_len - 1] + "…"
+    return f"Topic {tid}"
 
 
 def short_label(name: str, max_chars: int = 60) -> str:
@@ -244,7 +223,9 @@ def main() -> None:
     if chunks.empty:
         raise ValueError("No chunks left after filtering.")
 
-    topic_labels = load_topic_labels(TOPIC_INFO_PATH)
+    auto_names = load_topic_auto_names(TOPIC_INFO_PATH)
+    human_labels = load_topic_labels(TOPIC_LABELS_PATH)
+    topic_labels = {**auto_names, **human_labels}
 
 
     if CHUNKS_SENT_PATH.exists() and not args.force_rescore:
@@ -275,8 +256,6 @@ def main() -> None:
     )
     print(f"Saved sentiment cache: {CHUNKS_SENT_PATH}")
 
-    # Aggregate (party, topic)
-
     grouped = (
         chunks.groupby(["party_family", TOPIC_COL])
         .agg(
@@ -288,7 +267,6 @@ def main() -> None:
         .reset_index()
     )
 
-    # Filter cells with enough chunks
     grouped = grouped[grouped["n_chunks"] >= args.min_chunks_per_cell].copy()
     grouped["topic_label"] = grouped[TOPIC_COL].map(topic_labels).fillna("")
     grouped.to_csv(SENT_TABLE_PATH, index=False, encoding="utf-8-sig")
@@ -323,8 +301,6 @@ def main() -> None:
     shared.to_csv(SHARED_TOPICS_PATH, index=False, encoding="utf-8-sig")
     print(f"Saved shared topics polarization: {SHARED_TOPICS_PATH} ({len(shared)} shared topics)")
 
-    # Sentiment per (party, topic, year)
-
     if YEAR_COL in chunks.columns:
         grouped_y = (
             chunks.dropna(subset=[YEAR_COL])
@@ -340,15 +316,12 @@ def main() -> None:
         grouped_y.to_csv(SENT_YEAR_PATH, index=False, encoding="utf-8-sig")
         print(f"Saved per-year sentiment table: {SENT_YEAR_PATH} ({len(grouped_y)} cells)")
 
-    # Qualitative extracts for top-K polarized topics
-
     top_polarized = shared.head(args.top_k_polarized)
 
     with open(EXTRACTS_PATH, "w", encoding="utf-8") as f:
-        f.write("=== QUALITATIVE EXTRACTS — TOP POLARIZED SHARED TOPICS ===\n\n")
+        f.write("=== Qualitative extracts — top polarised shared topics ===\n\n")
         f.write(f"For each topic, the {args.extracts_per_cell} most positive chunks from the\n")
-        f.write("highest-sentiment party and the most negative chunks from the lowest.\n")
-        f.write("Use these as concrete examples in the report.\n\n")
+        f.write("highest-sentiment party and the most negative chunks from the lowest.\n\n")
 
         for _, row in top_polarized.iterrows():
             tid = int(row["topic"])
@@ -358,7 +331,6 @@ def main() -> None:
             f.write(f"  range = {row['range']:.3f}  |  std = {row['std']:.3f}  |  n_parties = {row['n_parties']}\n")
             f.write("=" * 90 + "\n\n")
 
-            # Most positive party
             f.write(f">> {row['max_party']:>22}  (mean sentiment = {row['max_mean']:+.3f})\n")
             sub_max = chunks[
                 (chunks[TOPIC_COL] == tid) & (chunks["party_family"] == row["max_party"])
@@ -367,7 +339,6 @@ def main() -> None:
                 f.write(f"   [s={c['sentiment']:+.3f}] {truncate(c[TEXT_COL])}\n")
             f.write("\n")
 
-            # Most negative party
             f.write(f">> {row['min_party']:>22}  (mean sentiment = {row['min_mean']:+.3f})\n")
             sub_min = chunks[
                 (chunks[TOPIC_COL] == tid) & (chunks["party_family"] == row["min_party"])
@@ -378,10 +349,7 @@ def main() -> None:
 
     print(f"Saved qualitative extracts: {EXTRACTS_PATH}")
 
-    # Heatmap (party x topic, mean sentiment)
-
     if not grouped.empty:
-        # Limit to topics with at least min_parties parties for readability
         eligible_topics = (
             grouped.groupby(TOPIC_COL)["party_family"].nunique()
             .loc[lambda s: s >= args.min_parties]
@@ -394,22 +362,21 @@ def main() -> None:
             pivot = sub.pivot(index="party_family", columns=TOPIC_COL, values="mean_sentiment")
             pivot = pivot.loc[:, sorted(pivot.columns)]
 
-            fig, ax = plt.subplots(figsize=(max(10, 0.4 * pivot.shape[1]), max(4, 0.55 * pivot.shape[0])))
+            xtick_labels = [topic_display_name(int(t), human_labels, max_len=35) for t in pivot.columns]
+            fig, ax = plt.subplots(figsize=(max(10, 0.5 * pivot.shape[1]), max(4, 0.55 * pivot.shape[0])))
             vmax = max(0.3, np.nanmax(np.abs(pivot.values)))
             im = ax.imshow(pivot.values, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
             ax.set_xticks(np.arange(pivot.shape[1]))
-            ax.set_xticklabels(pivot.columns, rotation=45, ha="right", fontsize=8)
+            ax.set_xticklabels(xtick_labels, rotation=60, ha="right", fontsize=7)
             ax.set_yticks(np.arange(pivot.shape[0]))
             ax.set_yticklabels(pivot.index)
-            ax.set_xlabel("Topic id")
+            ax.set_xlabel("Topic")
             ax.set_title("Mean sentiment by party_family x topic (shared topics only)")
             plt.colorbar(im, ax=ax, label="Mean sentiment (-1 = neg, +1 = pos)")
             plt.tight_layout()
             plt.savefig(HEATMAP_PATH, dpi=150)
             plt.close()
             print(f"Saved heatmap: {HEATMAP_PATH}")
-
-    # Boxplot of sentiment per party for top polarized topics
 
     if not top_polarized.empty:
         fig, axes = plt.subplots(
@@ -426,8 +393,10 @@ def main() -> None:
             data = [sub.loc[sub["party_family"] == p, "sentiment"].values for p in parties]
 
             ax.boxplot(data, labels=parties, vert=True, showfliers=False)
-            label = r["topic_label"] or f"Topic {tid}"
-            ax.set_title(f"Topic {tid}: {short_label(label, 70)}  (range={r['range']:.2f})", fontsize=9)
+            display = topic_display_name(tid, human_labels, max_len=70)
+            if display.startswith("Topic "):
+                display = short_label(r.get("topic_label") or display, 70)
+            ax.set_title(f"Topic {tid}: {display}  (range={r['range']:.2f})", fontsize=9)
             ax.set_ylabel("sentiment")
             ax.axhline(0, color="gray", linewidth=0.5, linestyle="--")
             ax.tick_params(axis="x", labelsize=8, rotation=20)
@@ -436,8 +405,6 @@ def main() -> None:
         plt.savefig(BOX_PATH, dpi=150)
         plt.close()
         print(f"Saved boxplots: {BOX_PATH}")
-
-    # Per-year sentiment evolution (top polarized topics)
 
     if YEAR_COL in chunks.columns and not top_polarized.empty:
         try:
@@ -484,7 +451,7 @@ def main() -> None:
 
 
     with open(INFO_PATH, "w", encoding="utf-8") as f:
-        f.write("=== Sentiment by Party x Topic — Brian's H5 ===\n\n")
+        f.write("=== Sentiment by party_family x topic ===\n\n")
         f.write(f"Model: {args.model}\n")
         f.write(f"Chunks scored: {len(chunks)}\n")
         f.write(f"Cells (party x topic) kept: {len(grouped)}\n")
@@ -498,8 +465,7 @@ def main() -> None:
         f.write(f"  fraction >0:   {(chunks['sentiment'] > 0).mean():.1%}\n")
         f.write(f"  fraction <0:   {(chunks['sentiment'] < 0).mean():.1%}\n\n")
 
-        f.write("=== Top polarized shared topics ===\n")
-        f.write("(topics where ≥{n} parties differ most in tone)\n\n".format(n=args.min_parties))
+        f.write("=== Top polarised shared topics ===\n\n")
         cols = ["topic", "n_parties", "n_chunks_total", "min_party", "min_mean", "max_party", "max_mean", "range"]
         f.write(shared[cols].head(15).to_string(index=False))
         f.write("\n\n")

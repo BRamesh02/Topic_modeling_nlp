@@ -1,25 +1,17 @@
 """
-Step 8 — LDA Topic Modeling
-
-Runs LDA on text_preprocessed (lemmatized + stopwords removed) chunked at the
-same granularity as step 6, but on the preprocessed column directly. Document
-identifiers (doc_id) match step 6 so step 9 can aggregate both models per doc.
-
-Inputs:
-data/corpus_preprocessed.csv  (column text_preprocessed)
-
-Outputs:
-data/chunks_with_topics_lda.csv
-outputs/lda_topic_info.csv
-outputs/lda_modeling_info.txt
-models/lda_model/
+Step 8 — LDA baseline on text_preprocessed (lemmatised + stopwords removed),
+chunked at the same granularity as step 6. Document identifiers match step 6
+so that step 9 can aggregate the two models per doc. Run with --eval-k to do a
+coherence-vs-K sweep instead of fitting the main model.
 """
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 from typing import List
 
+import numpy as np
 import pandas as pd
 from gensim.corpora import Dictionary
 from gensim.models import LdaModel, CoherenceModel
@@ -30,7 +22,7 @@ from tqdm import tqdm
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS = PROJECT_ROOT / "outputs"
 
-PREV_DIR = OUTPUTS / "04_preprocessing"
+PREV_DIR = OUTPUTS / "03_preprocessing"
 STEP_DIR = OUTPUTS / "08_lda"
 REPORTS_DIR = STEP_DIR / "reports"
 FIG_DIR = STEP_DIR / "figures"
@@ -58,7 +50,7 @@ CHUNK_SIZE = 150
 CHUNK_OVERLAP = 30
 MIN_CHUNK_WORDS = 40
 
-NUM_TOPICS = 20
+NUM_TOPICS = 10
 PASSES = 10
 ITERATIONS = 100
 RANDOM_STATE = 42
@@ -104,7 +96,91 @@ def dominant_topic(doc_topics: List[tuple[int, float]]) -> tuple[int, float]:
     return int(topic_id), float(score)
 
 
+def get_topics_top_words(model: LdaModel, num_topics: int, n_top_words: int) -> List[List[str]]:
+    return [
+        [w for w, _ in model.show_topic(t, topn=n_top_words)]
+        for t in range(num_topics)
+    ]
+
+
+def evaluate_k_coherence(
+    tokenized: List[List[str]],
+    dictionary: Dictionary,
+    corpus: List,
+    k_values: List[int],
+    n_top_words: int = 10,
+    passes: int = 5,
+    iterations: int = 50,
+    random_state: int = RANDOM_STATE,
+) -> pd.DataFrame:
+    metrics = ["u_mass", "c_v", "c_uci", "c_npmi"]
+    rows = []
+    for k in k_values:
+        print(f"\n[eval-k] Fitting LDA with k={k} ...")
+        model = LdaModel(
+            corpus=corpus,
+            id2word=dictionary,
+            num_topics=k,
+            passes=passes,
+            iterations=iterations,
+            random_state=random_state,
+            eval_every=None,
+            alpha="auto",
+            eta="auto",
+        )
+        topics = get_topics_top_words(model, k, n_top_words)
+        for met in metrics:
+            cm = CoherenceModel(
+                topics=topics,
+                texts=tokenized,
+                dictionary=dictionary,
+                coherence=met,
+            )
+            score = float(cm.get_coherence())
+            rows.append({"k": k, "metric": met, "coherence": score})
+            print(f"  k={k}, {met}: {score:.4f}")
+    return pd.DataFrame(rows)
+
+
+def plot_coherence_curves(df: pd.DataFrame, out_path: Path) -> None:
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(10, 6))
+    for met, sub in df.groupby("metric"):
+        sub = sub.sort_values("k")
+        scores = sub["coherence"].values
+        rng = scores.max() - scores.min()
+        norm = (scores - scores.min()) / rng if rng > 0 else np.zeros_like(scores)
+        plt.plot(sub["k"].values, norm, marker="o", label=met)
+    plt.xlabel("Number of topics (k)")
+    plt.ylabel("Normalised coherence (per metric)")
+    plt.title("LDA — coherence vs k (min–max normalised per metric)")
+    plt.grid(alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close()
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description="LDA topic modeling on the preprocessed corpus.")
+    parser.add_argument(
+        "--eval-k", action="store_true",
+        help="Run coherence-vs-k analysis (no full fit). Saves coherence_eval.csv and a plot.",
+    )
+    parser.add_argument(
+        "--k-values", type=int, nargs="+", default=[5, 10, 15, 20, 30],
+        help="K values to test in --eval-k mode.",
+    )
+    parser.add_argument(
+        "--eval-sample", type=int, default=80000,
+        help="Number of chunks to sample for the coherence eval (0 = all). Eval is heavy: each k = 1 LDA fit.",
+    )
+    parser.add_argument(
+        "--eval-passes", type=int, default=5,
+        help="LDA passes during eval (lower than main fit for tractable runtime).",
+    )
+    args = parser.parse_args()
+
     print("\nLoading preprocessed corpus...")
     df = pd.read_csv(INPUT_PATH)
     print(f"Documents loaded: {len(df)}")
@@ -144,6 +220,47 @@ def main() -> None:
         raise ValueError("Empty dictionary after filtering. Adjust MIN_DF/MAX_DF.")
 
     corpus = [dictionary.doc2bow(t) for t in tokenized]
+
+    if args.eval_k:
+        print("\n=== Coherence-vs-k evaluation mode ===")
+        if args.eval_sample and 0 < args.eval_sample < len(tokenized):
+            rng = np.random.default_rng(RANDOM_STATE)
+            idx = rng.choice(len(tokenized), size=args.eval_sample, replace=False)
+            tokenized_eval = [tokenized[i] for i in idx]
+            corpus_eval = [corpus[i] for i in idx]
+            print(f"Sampled {len(tokenized_eval)} chunks for the evaluation.")
+        else:
+            tokenized_eval = tokenized
+            corpus_eval = corpus
+
+        eval_df = evaluate_k_coherence(
+            tokenized_eval, dictionary, corpus_eval,
+            k_values=args.k_values,
+            n_top_words=10,
+            passes=args.eval_passes,
+            iterations=50,
+        )
+        eval_csv = STEP_DIR / "coherence_eval.csv"
+        eval_df.to_csv(eval_csv, index=False, encoding="utf-8-sig")
+        print(f"\nSaved coherence eval CSV: {eval_csv}")
+
+        eval_fig = FIG_DIR / "coherence_vs_k.png"
+        plot_coherence_curves(eval_df, eval_fig)
+        print(f"Saved coherence eval figure: {eval_fig}")
+
+        with open(REPORTS_DIR / "coherence_eval.txt", "w", encoding="utf-8") as f:
+            f.write("=== LDA — coherence vs k ===\n\n")
+            f.write(f"K values: {args.k_values}\n")
+            f.write(f"Sample size: {len(tokenized_eval)} chunks\n")
+            f.write(f"Eval passes: {args.eval_passes}\n\n")
+            f.write("Best k per metric (highest raw coherence):\n")
+            for met, sub in eval_df.groupby("metric"):
+                best = sub.loc[sub["coherence"].idxmax()]
+                f.write(f"  {met}: k={int(best['k'])}  (score={best['coherence']:.4f})\n")
+            f.write("\nFull table:\n")
+            f.write(eval_df.pivot(index="k", columns="metric", values="coherence").to_string())
+        print("\nDone (eval-k mode). No full LDA fit was performed.")
+        return
 
     print("\nFitting LDA...")
     lda_model = LdaModel(
@@ -222,7 +339,6 @@ def main() -> None:
 
 
     import matplotlib.pyplot as plt
-    import numpy as np
 
     # Top words per topic (grid)
     cols = 4

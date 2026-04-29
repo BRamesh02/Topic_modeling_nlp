@@ -1,28 +1,12 @@
 """
-Step 10 — Hypothesis tests (merges old 10 + 11 + 12)
+Step 10 — Inter-family clustering and thematic specialisation.
 
-  --hypothesis h1   : H1 — party clustering (KMeans purity / ARI / NMI / silhouette
-                      in two views: raw embedding space and topic-distribution space)
-  --hypothesis h3   : H3 — topic specialization by party (lift, chi-square,
-                      Cramer's V, top-K specialized topics per party, log-lift heatmap)
-  --hypothesis h4   : H4 — polarization by year (between-party variance,
-                      mean pairwise cosine distance, topic entropy)
-  --all             : run all three
-
-Inputs:
-  outputs/06_chunking_embedding/corpus_chunks.csv         (H1)
-  outputs/06_chunking_embedding/chunk_embeddings.npy      (H1)
-  outputs/07_bertopic/chunks_with_topics.csv              (H3)
-  outputs/07_bertopic/topic_info.csv                      (H3 labels)
-  outputs/09_doc_topic_vectors/doc_topic_vectors_bertopic.csv  (H1, H3, H4)
-  outputs/09_doc_topic_vectors/doc_party_family.csv       (H1, H3, H4)
-
-Outputs in outputs/10_analyses/:
-  H1/  party_clustering_*.csv  + reports/party_clustering_info.txt
-  H3/  topic_specialization_*.csv + reports/topic_specialization_*.txt
-       + figures/topic_specialization_heatmap.png
-  H4/  polarization_by_year.csv + reports/polarization_info.txt
-       + figures/polarization_by_year.png
+  --analysis clustering      : KMeans (k=7) on documents in two spaces
+                               (mean-embedding profile and topic-distribution
+                               profile), report Purity / ARI / NMI / Silhouette.
+  --analysis specialisation  : lift, chi-square, Cramer's V, top-K specialised
+                               topics per family, log-lift heatmap.
+  --all                      : run both.
 """
 
 from __future__ import annotations
@@ -48,6 +32,7 @@ CHUNKS_PATH = OUTPUTS / "06_chunking_embedding" / "corpus_chunks.csv"
 EMBEDDINGS_PATH = OUTPUTS / "06_chunking_embedding" / "chunk_embeddings.npy"
 CHUNKS_TOPICS_PATH = OUTPUTS / "07_bertopic" / "chunks_with_topics.csv"
 TOPIC_INFO_PATH = OUTPUTS / "07_bertopic" / "topic_info.csv"
+TOPIC_LABELS_PATH = OUTPUTS / "07_bertopic" / "topic_labels.csv"
 DOC_VEC_PATH = OUTPUTS / "09_doc_topic_vectors" / "doc_topic_vectors_bertopic.csv"
 
 STEP_DIR = OUTPUTS / "10_analyses"
@@ -60,10 +45,26 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 DOC_ID_COL = "doc_id"
 EXCLUDED_FAMILIES = {"unclassified", "other"}
-EPS = 1e-12
 
 
-# H1 — Party clustering
+def load_topic_labels(path: Path = TOPIC_LABELS_PATH) -> dict[int, str]:
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path)
+    if "topic_id" not in df.columns or "label" not in df.columns:
+        return {}
+    df = df[df["label"].notna()]
+    return dict(zip(df["topic_id"].astype(int), df["label"].astype(str)))
+
+
+def topic_display_name(tid: int, labels: dict[int, str] | None = None, max_len: int = 50) -> str:
+    if labels and tid in labels and labels[tid]:
+        label = labels[tid]
+        return label if len(label) <= max_len else label[: max_len - 1] + "…"
+    return f"Topic {tid}"
+
+
+# Party clustering
 
 def _safe_perplexity(n_samples: int, desired: int) -> int:
     if n_samples < 3:
@@ -133,15 +134,15 @@ PARTY_COLORS = {
 }
 
 
-def run_h1(args) -> None:
-    out_dir = STEP_DIR / "H1"
-    out_reports = REPORTS_DIR / "H1"
-    out_figs = FIG_DIR / "H1"
+def run_clustering(args) -> None:
+    out_dir = STEP_DIR / "clustering"
+    out_reports = REPORTS_DIR / "clustering"
+    out_figs = FIG_DIR / "clustering"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_reports.mkdir(parents=True, exist_ok=True)
     out_figs.mkdir(parents=True, exist_ok=True)
 
-    print("\n[H1] Loading chunks and embeddings...")
+    print("\n[clustering] Loading chunks and embeddings...")
     df_chunks = pd.read_csv(CHUNKS_PATH)
     embeddings = np.load(EMBEDDINGS_PATH)
     if len(df_chunks) != embeddings.shape[0]:
@@ -174,7 +175,7 @@ def run_h1(args) -> None:
     n_clusters = emb_df["party_family"].nunique()
     labels_emb = emb_df["party_family"].values
 
-    print(f"[H1] View A — embedding space, {len(emb_df)} docs, k={n_clusters}")
+    print(f"[clustering] View A — embedding space, {len(emb_df)} docs, k={n_clusters}")
     res_emb = cluster_and_score(doc_embeddings, labels_emb, n_clusters, args.random_state)
     emb_df["cluster"] = res_emb["clusters"]
     proj_emb = project_vectors(doc_embeddings, args.method, args.random_state)
@@ -191,7 +192,7 @@ def run_h1(args) -> None:
     top_df = doc_topic[doc_topic[DOC_ID_COL].isin(keep_doc_ids)].copy().reset_index(drop=True)
     top_vectors = top_df[topic_cols].values.astype(float)
 
-    print(f"[H1] View B — topic space, {len(top_df)} docs, k={n_clusters}")
+    print(f"[clustering] View B — topic space, {len(top_df)} docs, k={n_clusters}")
     res_top = cluster_and_score(top_vectors, top_df["party_family"].values, n_clusters, args.random_state)
     top_df["cluster"] = res_top["clusters"]
     proj_top = project_vectors(top_vectors, args.method, args.random_state)
@@ -226,13 +227,13 @@ def run_h1(args) -> None:
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=min(7, len(handles)),
                fontsize=9, bbox_to_anchor=(0.5, -0.04))
-    plt.suptitle(f"H1 — Party clustering ({args.method.upper()}, k={n_clusters})", y=1.02)
+    plt.suptitle(f"Party clustering ({args.method.upper()}, k={n_clusters})", y=1.02)
     plt.tight_layout()
-    plt.savefig(out_figs / "h1_party_projection.png", dpi=150, bbox_inches="tight")
+    plt.savefig(out_figs / "party_projection.png", dpi=150, bbox_inches="tight")
     plt.close()
 
     with open(out_reports / "party_clustering_info.txt", "w", encoding="utf-8") as f:
-        f.write("=== H1 — Party Clustering ===\n\n")
+        f.write("=== Party clustering ===\n\n")
         f.write(f"Excluded families: {sorted(EXCLUDED_FAMILIES)}\n")
         f.write(f"Documents used: {len(emb_df)}\n")
         f.write(f"Number of unique labels: {emb_df['party_family'].nunique()}\n")
@@ -255,12 +256,12 @@ def run_h1(args) -> None:
         f.write(emb_df["party_family"].value_counts().to_string())
         f.write("\n")
 
-    print(f"[H1] Done → {out_dir}")
+    print(f"[clustering] Done → {out_dir}")
 
 
-# H3 — Topic specialization
+# Topic specialization
 
-def load_topic_labels(path: Path) -> dict[int, str]:
+def load_topic_auto_names(path: Path) -> dict[int, str]:
     if not path.exists():
         return {}
     info = pd.read_csv(path)
@@ -269,15 +270,15 @@ def load_topic_labels(path: Path) -> dict[int, str]:
     return dict(zip(info["Topic"].astype(int), info["Name"].astype(str)))
 
 
-def run_h3(args) -> None:
-    out_dir = STEP_DIR / "H3"
-    out_reports = REPORTS_DIR / "H3"
-    out_figs = FIG_DIR / "H3"
+def run_specialisation(args) -> None:
+    out_dir = STEP_DIR / "specialisation"
+    out_reports = REPORTS_DIR / "specialisation"
+    out_figs = FIG_DIR / "specialisation"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_reports.mkdir(parents=True, exist_ok=True)
     out_figs.mkdir(parents=True, exist_ok=True)
 
-    print("\n[H3] Loading doc-level topic vectors...")
+    print("\n[specialisation] Loading doc-level topic vectors...")
     doc_vec = pd.read_csv(DOC_VEC_PATH)
     if "party_family" not in doc_vec.columns:
         raise ValueError("party_family missing — run 09_doc_topic_vectors.py first.")
@@ -297,9 +298,12 @@ def run_h3(args) -> None:
     lift_long["topic_id"] = lift_long["topic"].str.replace("topic_", "").astype(int)
     lift_long["log_lift"] = np.log(np.maximum(lift_long["lift"].values, 1e-9))
 
-    topic_labels = load_topic_labels(TOPIC_INFO_PATH)
-    if topic_labels:
-        lift_long["topic_label"] = lift_long["topic_id"].map(topic_labels).fillna("")
+    auto_names = load_topic_auto_names(TOPIC_INFO_PATH)
+    human_labels = load_topic_labels(TOPIC_LABELS_PATH)
+    if auto_names:
+        lift_long["topic_auto_name"] = lift_long["topic_id"].map(auto_names).fillna("")
+    if human_labels:
+        lift_long["topic_label"] = lift_long["topic_id"].map(human_labels).fillna("")
 
     lift_long.to_csv(out_dir / "topic_specialization_lift.csv", index=False, encoding="utf-8-sig")
 
@@ -318,7 +322,7 @@ def run_h3(args) -> None:
     top_df = pd.DataFrame(rows)
     top_df.to_csv(out_dir / "topic_specialization_top.csv", index=False, encoding="utf-8-sig")
 
-    print("[H3] Computing chi2 on chunk-level (party x topic)...")
+    print("[specialisation] Computing chi2 on chunk-level (party x topic)...")
     chunks = pd.read_csv(CHUNKS_TOPICS_PATH)
     chunks = chunks[chunks["topic"] != -1].copy()
     party_map = dict(zip(doc_vec[DOC_ID_COL].astype(str), doc_vec["party_family"]))
@@ -332,7 +336,7 @@ def run_h3(args) -> None:
     cramers_v = float(np.sqrt(chi2_stat / (n * (min(contingency.shape) - 1))))
 
     with open(out_reports / "topic_specialization_chi2.txt", "w", encoding="utf-8") as f:
-        f.write("=== H3 — Chi-square independence (party x topic) ===\n\n")
+        f.write("=== Chi-square independence (party x topic) ===\n\n")
         f.write(f"Contingency shape: {contingency.shape}\n")
         f.write(f"Total chunks: {n}\n")
         f.write(f"Chi2 statistic: {chi2_stat:.2f}\n")
@@ -342,19 +346,20 @@ def run_h3(args) -> None:
         f.write("\n(0.1 = small, 0.3 = medium, 0.5 = large effect)\n")
 
     pivot = lift_long.pivot(index="party_family", columns="topic_id", values="log_lift").fillna(0.0)
-    plt.figure(figsize=(max(8, 0.3 * pivot.shape[1]), max(4, 0.5 * pivot.shape[0])))
+    xtick_labels = [topic_display_name(int(t), human_labels, max_len=35) for t in pivot.columns]
+    plt.figure(figsize=(max(10, 0.45 * pivot.shape[1]), max(4, 0.6 * pivot.shape[0])))
     vmax = max(abs(pivot.values.min()), abs(pivot.values.max()), 1.0)
     plt.imshow(pivot.values, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
     plt.colorbar(label="log(lift) — positive = over-representation")
-    plt.xticks(np.arange(pivot.shape[1]), pivot.columns, rotation=45, ha="right")
+    plt.xticks(np.arange(pivot.shape[1]), xtick_labels, rotation=60, ha="right", fontsize=8)
     plt.yticks(np.arange(pivot.shape[0]), pivot.index)
-    plt.title("H3 — Topic specialization by party (log-lift)")
+    plt.title("Topic specialisation by party (log-lift)")
     plt.tight_layout()
     plt.savefig(out_figs / "topic_specialization_heatmap.png", dpi=150)
     plt.close()
 
     with open(out_reports / "topic_specialization_info.txt", "w", encoding="utf-8") as f:
-        f.write("=== H3 — Topic Specialization ===\n\n")
+        f.write("=== Topic specialisation ===\n\n")
         f.write(f"Documents used: {len(df)}\n")
         f.write(f"Topics: {len(topic_cols)}\n")
         f.write(f"Parties (families): {df['party_family'].nunique()}\n")
@@ -364,141 +369,32 @@ def run_h3(args) -> None:
         f.write(top_df.to_string(index=False))
         f.write("\n")
 
-    print(f"[H3] Done → {out_dir}")
+    print(f"[specialisation] Done → {out_dir}")
 
 
-# H4 — Polarization by year
-
-def cosine_distance(a: np.ndarray, b: np.ndarray) -> float:
-    na, nb = np.linalg.norm(a), np.linalg.norm(b)
-    if na < EPS or nb < EPS:
-        return float("nan")
-    return 1.0 - float(np.dot(a, b) / (na * nb))
-
-
-def shannon_entropy(p: np.ndarray) -> float:
-    p = p[p > 0]
-    return float(-np.sum(p * np.log(p))) if len(p) else 0.0
-
-
-def run_h4(args) -> None:
-    out_dir = STEP_DIR / "H4"
-    out_reports = REPORTS_DIR / "H4"
-    out_figs = FIG_DIR / "H4"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_reports.mkdir(parents=True, exist_ok=True)
-    out_figs.mkdir(parents=True, exist_ok=True)
-
-    print("\n[H4] Loading doc-level topic vectors...")
-    df = pd.read_csv(DOC_VEC_PATH)
-    if "year" not in df.columns or "party_family" not in df.columns:
-        raise ValueError("Need 'year' and 'party_family' columns.")
-    topic_cols = [c for c in df.columns if c.startswith("topic_")]
-    if not topic_cols:
-        raise ValueError("No topic_* columns.")
-    df = df[~df["party_family"].isin(EXCLUDED_FAMILIES)].copy()
-    df = df.dropna(subset=["year"])
-
-    rows = []
-    for year, sub in df.groupby("year"):
-        if len(sub) < 5:
-            continue
-        global_mean = sub[topic_cols].values.astype(float).mean(axis=0)
-        bpv_num = 0.0
-        n_total = len(sub)
-        party_means = {}
-        for party, g in sub.groupby("party_family"):
-            if len(g) < 2:
-                continue
-            mu_p = g[topic_cols].values.astype(float).mean(axis=0)
-            party_means[party] = mu_p
-            bpv_num += len(g) * np.sum((mu_p - global_mean) ** 2)
-        bpv = bpv_num / n_total
-
-        parties = list(party_means.keys())
-        if len(parties) >= 2:
-            dists = []
-            for i in range(len(parties)):
-                for j in range(i + 1, len(parties)):
-                    d = cosine_distance(party_means[parties[i]], party_means[parties[j]])
-                    if not np.isnan(d):
-                        dists.append(d)
-            mean_pairwise = float(np.mean(dists)) if dists else float("nan")
-            max_pairwise = float(np.max(dists)) if dists else float("nan")
-        else:
-            mean_pairwise = max_pairwise = float("nan")
-
-        corpus_dist = global_mean / (global_mean.sum() + EPS)
-        entropy = shannon_entropy(corpus_dist)
-        max_entropy = np.log(len(topic_cols))
-        norm_entropy = entropy / max_entropy if max_entropy > 0 else 0.0
-
-        rows.append({
-            "year": year, "n_docs": n_total, "n_parties": len(parties),
-            "between_party_variance": bpv,
-            "mean_pairwise_cosine_dist": mean_pairwise,
-            "max_pairwise_cosine_dist": max_pairwise,
-            "topic_entropy": entropy, "topic_entropy_normalized": norm_entropy,
-        })
-
-    res = pd.DataFrame(rows).sort_values("year")
-    res.to_csv(out_dir / "polarization_by_year.csv", index=False, encoding="utf-8-sig")
-
-    if not res.empty:
-        fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-        years_str = res["year"].astype(str).tolist()
-        axes[0].plot(years_str, res["between_party_variance"], marker="o")
-        axes[0].set_title("Between-party variance\n(higher = parties differ more)")
-        axes[0].set_xlabel("Year"); axes[0].set_ylabel("BPV")
-        axes[1].plot(years_str, res["mean_pairwise_cosine_dist"], marker="o", label="mean")
-        axes[1].plot(years_str, res["max_pairwise_cosine_dist"], marker="s", label="max", alpha=0.6)
-        axes[1].set_title("Pairwise cosine distance\nbetween party centroids")
-        axes[1].set_xlabel("Year"); axes[1].set_ylabel("Cosine distance"); axes[1].legend()
-        axes[2].plot(years_str, res["topic_entropy_normalized"], marker="o", color="C2")
-        axes[2].set_title("Topic distribution entropy\n(lower = focus on fewer topics)")
-        axes[2].set_xlabel("Year"); axes[2].set_ylabel("Normalized entropy")
-        for ax in axes:
-            ax.grid(alpha=0.3)
-        plt.tight_layout()
-        plt.savefig(out_figs / "polarization_by_year.png", dpi=150)
-        plt.close()
-
-    with open(out_reports / "polarization_info.txt", "w", encoding="utf-8") as f:
-        f.write("=== H4 — Polarization by Year ===\n\n")
-        f.write(f"Excluded families: {sorted(EXCLUDED_FAMILIES)}\n")
-        f.write(f"Years analyzed: {len(res)}\n\n")
-        f.write(res.to_string(index=False))
-        f.write("\n\nInterpretation:\n")
-        f.write("- BPV: weighted dispersion of party means around the corpus mean.\n")
-        f.write("- Mean pairwise cosine: how spread apart party centroids are.\n")
-        f.write("- Topic entropy: how concentrated the corpus is on few topics.\n")
-
-    print(f"[H4] Done → {out_dir}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Hypothesis tests H1, H3, H4.")
-    parser.add_argument("--hypothesis", type=str, choices=["h1", "h3", "h4"], default=None)
-    parser.add_argument("--all", action="store_true", help="Run all three hypotheses.")
-    # H1 parameters
+    parser = argparse.ArgumentParser(description="Inter-family clustering and thematic specialisation.")
+    parser.add_argument("--analysis", type=str, choices=["clustering", "specialisation"], default=None)
+    parser.add_argument("--all", action="store_true", help="Run both analyses.")
+    # Clustering parameters
     parser.add_argument("--method", type=str, default="pca", choices=["pca", "tsne"])
     parser.add_argument("--random-state", type=int, default=42)
     parser.add_argument("--min-docs", type=int, default=10)
     parser.add_argument("--top-labels", type=int, default=10)
-    # H3 parameters
-    parser.add_argument("--top-k", type=int, default=3, help="Top-K specialized topics per party (H3).")
+    # Specialisation parameters
+    parser.add_argument("--top-k", type=int, default=3, help="Top-K specialised topics per party.")
 
     args = parser.parse_args()
 
-    if not args.all and args.hypothesis is None:
-        parser.error("Specify --hypothesis {h1,h3,h4} or --all")
+    if not args.all and args.analysis is None:
+        parser.error("Specify --analysis {clustering,specialisation} or --all")
 
-    if args.all or args.hypothesis == "h1":
-        run_h1(args)
-    if args.all or args.hypothesis == "h3":
-        run_h3(args)
-    if args.all or args.hypothesis == "h4":
-        run_h4(args)
+    if args.all or args.analysis == "clustering":
+        run_clustering(args)
+    if args.all or args.analysis == "specialisation":
+        run_specialisation(args)
 
     print("\nDone.")
 

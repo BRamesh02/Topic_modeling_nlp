@@ -1,30 +1,20 @@
 """
-Step 9 — Document-level Topic Vectors + Party Family Assignment
-
-Consolidates BERTopic and LDA chunk-level outputs into doc-level topic
-distributions, and assigns each document to a party_family. This is the single
-source of truth used by steps 10-13.
-
-Inputs:
-data/chunks_with_topics.csv          (BERTopic, column 'topic')
-data/chunks_with_topics_lda.csv      (LDA, columns 'topic_lda', 'topic_lda_score')
-
-Outputs:
-outputs/doc_topic_vectors_bertopic.csv
-outputs/doc_topic_vectors_lda.csv
-outputs/doc_party_family.csv
-outputs/doc_topic_vectors_info.txt
+Step 9 — Aggregate chunk-level topics into document-level topic vectors and
+attach a party_family label per document. Used by steps 10, 11 and 12.
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Iterable, List
 import argparse
-import re
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _family_mapping import AFFILIATION_FIELDS, assign_party_family
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -64,131 +54,6 @@ DOC_META_COLS = [
     "titulaire-prenom",
     "titulaire-nom",
 ]
-
-AFFILIATION_FIELDS = ["titulaire-soutien", "titulaire-liste"]
-
-
-def _compact(value) -> str:
-    if pd.isna(value):
-        return ""
-    return str(value).lower()
-
-
-def assign_party_family(row: pd.Series) -> str:
-    """Map raw party labels (titulaire-soutien / titulaire-liste) to coarse families.
-    Order matters: more specific patterns checked first (e.g. 'parti socialiste unifié'
-    -> radical_left, before generic 'socialiste' -> socialist_left).
-    """
-    # Drop "non mentionné" from each field BEFORE concatenation, so a doc with
-    # one informative field and one missing one is still classified.
-    parts = []
-    for col in AFFILIATION_FIELDS:
-        val = _compact(row.get(col, ""))
-        if val and "non mentionné" not in val:
-            parts.append(val)
-    labels = " ".join(parts)
-
-    if not labels.strip():
-        return "unclassified"
-
-    # ===== National / far right =====
-    if "front national" in labels:
-        return "national_right"
-    if "parti des forces nouvelles" in labels:
-        return "national_right"
-
-    # ===== Radical left (must be checked BEFORE 'communiste' and 'socialiste') =====
-    if "lutte ouvrière" in labels or "lutte ouvriere" in labels:
-        return "radical_left"
-    if "ligue communiste" in labels:  # LC (1973) + LCR (1978)
-        return "radical_left"
-    if "parti socialiste unifié" in labels or "parti socialiste unifie" in labels:  # PSU
-        return "radical_left"
-    if "parti ouvrier européen" in labels or "parti ouvrier europeen" in labels:  # POE 1988
-        return "radical_left"
-    if "comités juquin" in labels or "comites juquin" in labels:  # 1988
-        return "radical_left"
-    if "marxistes-léninistes" in labels or "marxistes-leninistes" in labels:
-        return "radical_left"
-
-    # ===== Communist (PCF) — after 'ligue communiste' =====
-    if "communiste" in labels:
-        return "communist_left"
-
-    # ===== Ecologist (incl. 1993 specific lists) =====
-    if "écolog" in labels or "ecolog" in labels:
-        return "ecologist"
-    if "verts" in labels:
-        return "ecologist"
-    if "nature et animaux" in labels:
-        return "ecologist"
-    if "défense des animaux" in labels or "defense des animaux" in labels:
-        return "ecologist"
-
-    # ===== Socialist (PS, MRG, PSD) — must be after PSU =====
-    if "parti socialiste démocrate" in labels or "parti socialiste democrate" in labels:
-        return "socialist_left"
-    if "socialiste" in labels:
-        return "socialist_left"
-    if "radicaux de gauche" in labels or "radical de gauche" in labels:
-        return "socialist_left"
-    if "mouvement des citoyens" in labels:  # MDC Chevènement (1993+)
-        return "socialist_left"
-
-    # ===== Gaullist right (UDR / RPR / URP) =====
-    if "rassemblement pour la république" in labels or "rassemblement pour la republique" in labels:
-        return "gaullist_right"
-    if re.search(r"\brpr\b", labels):
-        return "gaullist_right"
-    if "union des démocrates pour la république" in labels or "union des democrates pour la republique" in labels:
-        return "gaullist_right"
-    if re.search(r"\budr\b", labels):
-        return "gaullist_right"
-    if "union des républicains de progrès" in labels or "union des republicains de progres" in labels:
-        return "gaullist_right"
-    if re.search(r"\burp\b", labels):
-        return "gaullist_right"
-    if "gaulliste" in labels or "gaullistes" in labels:  # gaulliste, Union/Fédération des gaullistes
-        return "gaullist_right"
-
-    # ===== Liberal / center-right (UDF, MR, CD, CDS, RI, CNIP, ARIL, MdD) =====
-    if "union pour la démocratie française" in labels or "union pour la democratie francaise" in labels:
-        return "liberal_center_right"
-    if re.search(r"\budf\b", labels):
-        return "liberal_center_right"
-    if "mouvement réformateur" in labels or "mouvement reformateur" in labels:
-        return "liberal_center_right"
-    if "centre démocratie et progrès" in labels or "centre democratie et progres" in labels:
-        return "liberal_center_right"
-    if "centre des démocrates sociaux" in labels or "centre des democrates sociaux" in labels:
-        return "liberal_center_right"
-    if re.search(r"\bcds\b", labels):
-        return "liberal_center_right"
-    if "centre démocrate" in labels or "centre democrate" in labels:
-        return "liberal_center_right"
-    if "républicains indépendants" in labels or "republicains independants" in labels:
-        return "liberal_center_right"
-    if "alliance républicaine" in labels or "alliance republicaine" in labels:
-        return "liberal_center_right"
-    if "centre national des indépendants" in labels or "centre national des independants" in labels:
-        return "liberal_center_right"
-    if re.search(r"\bcnip\b", labels):
-        return "liberal_center_right"
-    if "mouvement des démocrates" in labels or "mouvement des democrates" in labels:
-        return "liberal_center_right"
-    if "réformateur" in labels or "reformateur" in labels:  # 1973-78 Mouvement réformateur and 1993 variants
-        return "liberal_center_right"
-    if "parti républicain" in labels or "parti republicain" in labels:  # PR, composante UDF
-        return "liberal_center_right"
-    if "démocratie chrétienne" in labels or "democratie chretienne" in labels:
-        return "liberal_center_right"
-    if "parti radical" in labels:  # Parti radical (valoisien, distinct des Radicaux de gauche déjà capturés)
-        return "liberal_center_right"
-
-    return "other"
-
-
-# Doc-topic matrix
 
 def build_doc_topic_matrix(
     df: pd.DataFrame,

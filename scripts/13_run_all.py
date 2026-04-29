@@ -1,15 +1,12 @@
 """
-Step 13 — Run the entire pipeline end-to-end.
+Run the full pipeline end-to-end (steps 1 to 12).
 
-Default: runs all 12 steps in order, stops on first error.
-
-Usage:
-  python scripts/13_run_all.py                    # all 12 steps
-  python scripts/13_run_all.py --skip 5 8         # skip steps 5 and 8
-  python scripts/13_run_all.py --from 7           # start from step 7
-  python scripts/13_run_all.py --to 9             # stop after step 9
+  python scripts/13_run_all.py                 # all steps
+  python scripts/13_run_all.py --skip 5 8      # skip listed steps
+  python scripts/13_run_all.py --from 7        # start from step 7
+  python scripts/13_run_all.py --to 9          # stop after step 9
   python scripts/13_run_all.py --continue-on-error
-  python scripts/13_run_all.py --dry-run          # just print what would run
+  python scripts/13_run_all.py --dry-run
 """
 
 from __future__ import annotations
@@ -28,17 +25,17 @@ SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 # (step_number, script_filename, default_args, short_description, est_minutes)
 STEPS = [
     (1,  "01_data_load.py",            [],                "Load CSV + OCR texts → corpus_joined", 2),
-    (2,  "02_eda.py",                  [],                "EDA: top words by year/party + keyword trends", 1),
-    (3,  "03_data_quality.py",         [],                "OCR quality filter + lexical diagnostics", 2),
-    (4,  "04_preprocessing.py",        [],                "Light cleaning + lemma + stopwords", 8),
+    (2,  "02_data_quality.py",         [],                "OCR quality filter + lexical diagnostics", 2),
+    (3,  "03_preprocessing.py",        [],                "Light cleaning + lemma + stopwords", 8),
+    (4,  "04_eda.py",                  [],                "EDA on text_clean: top words + keyword trends", 1),
     (5,  "05_chunking_eval.py",        [],                "Compare chunking methods (eval only)", 1),
     (6,  "06_chunking_embedding.py",   [],                "Chunk + embed (MiniLM, MPS/CUDA)", 8),
-    (7,  "07_bertopic.py",             [],                "BERTopic + reduce_outliers + reduce_topics(30)", 25),
-    (8,  "08_lda.py",                  [],                "LDA (20 topics)", 8),
+    (7,  "07_bertopic.py",             [],                "BERTopic + reduce_outliers + reduce_topics(20)", 25),
+    (8,  "08_lda.py",                  [],                "LDA (10 topics)", 8),
     (9,  "09_doc_topic_vectors.py",    [],                "Aggregate to doc level + party_family", 1),
-    (10, "10_analyses.py",             ["--all"],         "H1 + H3 + H4 hypothesis tests", 2),
+    (10, "10_analyses.py",             ["--all"],         "Clustering + specialisation analyses", 2),
     (11, "11_visualizations.py",       ["--all"],         "Projection + sanity + native viz", 5),
-    (12, "12_sentiment.py",            [],                "Sentiment scoring + polarization (Brian H5)", 30),
+    (12, "12_sentiment.py",            [],                "Sentiment scoring on shared topics", 30),
 ]
 
 

@@ -1,23 +1,7 @@
 """
-Step 7 — BERTopic Topic Modeling
-
-Embeds were computed on natural French (text_clean). Here we run UMAP+HDBSCAN
-on those embeddings, and use a CountVectorizer with a French stopword list for
-the c-TF-IDF representation (so topic terms exclude common French words).
-
-Inputs:
-data/corpus_chunks.csv         (column chunk_text)
-data/chunk_embeddings.npy
-stop_word_fr.txt               (used as CountVectorizer stop_words)
-
-Outputs:
-data/chunks_with_topics.csv
-outputs/topic_info.csv
-outputs/topic_modeling_info.txt
-models/bertopic_model/
-figures/topic_barchart.html
-figures/topic_heatmap.html
-figures/topic_hierarchy.html
+Step 7 — Fit BERTopic on the precomputed chunk embeddings. UMAP + HDBSCAN for
+the clustering, CountVectorizer (with the curated French stopword list) for the
+c-TF-IDF representation, then reduce_outliers + reduce_topics(20).
 """
 
 from pathlib import Path
@@ -39,7 +23,6 @@ else:
     DEVICE = "cpu"
 
 print(f"Using device: {DEVICE}")
-print("Note: BERTopic clustering runs mostly on CPU. Embeddings already computed in step 6.")
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -74,10 +57,10 @@ N_COMPONENTS = 5
 MIN_DIST = 0.0
 RANDOM_STATE = 42
 
-VECT_MIN_DF = 2  # low so c-TF-IDF works after topic-aggregation (each topic = 1 "doc")
-VECT_MAX_DF = 0.5  # tighter: filters words appearing in >50% of chunks (boilerplate)
-NGRAM_RANGE = (1, 2) # unigrams only for interpretability; bigrams often too sparse in c-TF-IDF
-REDUCE_OUTLIERS = True  # reassigns -1 chunks to nearest topic via embedding similarity
+VECT_MIN_DF = 2
+VECT_MAX_DF = 0.5
+NGRAM_RANGE = (1, 2)
+REDUCE_OUTLIERS = True
 
 
 def load_stopwords(path: Path) -> list[str]:
@@ -90,12 +73,10 @@ def load_stopwords(path: Path) -> list[str]:
 
 
 def save_plotly_png(fig, png_path: Path, width: int = 1400, height: int = 800):
-    """Save a plotly figure as PNG only (no HTML). Requires kaleido."""
     try:
         fig.write_image(png_path, width=width, height=height, scale=2)
     except Exception as e:
         print(f"PNG export failed for {png_path.name}: {e}")
-        print("Install kaleido: pip install kaleido")
 
 
 def main():
@@ -147,7 +128,6 @@ def main():
         umap_model=umap_model,
         hdbscan_model=hdbscan_model,
         calculate_probabilities=False,
-        # nr_topics removed — let HDBSCAN decide; auto-merge unstable + can collapse to <10 topics
         verbose=True,
     )
 
@@ -168,7 +148,6 @@ def main():
         n_outliers_after = sum(t == -1 for t in topics)
         print(f"Outliers after reduction: {n_outliers_after} ({100*n_outliers_after/len(topics):.1f}%)")
 
-        # Refresh topic representations on the reassigned chunks
         print("Updating topic representations after outlier reduction...")
         topic_model.update_topics(
             docs=docs,
@@ -176,7 +155,7 @@ def main():
             vectorizer_model=vectorizer_model,
         )
         
-        topic_model.reduce_topics(docs, nr_topics=30)
+        topic_model.reduce_topics(docs, nr_topics=20)
 
 
     df["topic"] = topics
@@ -230,7 +209,6 @@ def main():
     except Exception as e:
         print(f"Could not save topic_documents: {e}")
 
-    # Topic size distribution (matplotlib — always works)
     try:
         import matplotlib.pyplot as plt
         sizes = topic_info[topic_info["Topic"] != -1].sort_values("Count", ascending=False).head(30)

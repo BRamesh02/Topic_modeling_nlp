@@ -1,26 +1,12 @@
 """
-Step 11 — Visualizations (merges old 13 + 15 + 16)
+Step 11 — Visualisations.
 
-  --viz projection      : 2D projection of documents in topic space (PCA/t-SNE)
-                          + facet by year + interactive plotly (was 13)
-  --viz sanity          : digest of BERTopic topics: top words + 3 representative
-                          chunks per topic + flags (was 15)
-  --viz native          : BERTopic native views topics_per_class + topics_over_time
-                          (was 16)
-  --all                 : run all three
-
-Inputs:
-  outputs/07_bertopic/topic_info.csv
-  outputs/07_bertopic/models/bertopic_model/
-  outputs/07_bertopic/chunks_with_topics.csv
-  outputs/09_doc_topic_vectors/doc_topic_vectors_bertopic.csv
-  outputs/09_doc_topic_vectors/doc_party_family.csv
-
-Outputs in outputs/11_visualizations/:
-  projection/  doc_topic_projection.csv + figures/doc_projection_*.png|.html
-  sanity/      topic_flags.csv + reports/topic_digest.txt
-  native/      topics_per_class.csv + topics_over_time.csv
-               + figures/topics_per_class.html|.png + figures/topics_over_time.html|.png
+  --viz projection : 2D projection (PCA/t-SNE) of documents in topic space, with
+                     a per-year facet.
+  --viz sanity     : topic digest (top words + 3 representative chunks per topic)
+                     plus a few heuristic flags.
+  --viz native     : BERTopic's topics_per_class and topics_over_time outputs.
+  --all            : run the three.
 """
 
 from __future__ import annotations
@@ -68,15 +54,11 @@ PARTY_COLORS = {
 
 
 def save_plotly_png(fig, png_path: Path, width: int = 1400, height: int = 800):
-    """Save plotly figure as PNG only. Requires kaleido."""
     try:
         fig.write_image(png_path, width=width, height=height, scale=2)
     except Exception as e:
         print(f"PNG export failed for {png_path.name}: {e}")
-        print("Install kaleido: pip install kaleido")
 
-
-# Projection (was script 13)
 
 def _safe_perplexity(n: int, desired: int) -> int:
     if n < 3:
@@ -163,8 +145,6 @@ def run_projection(args) -> None:
     print(f"[projection] Done → {out_dir}")
 
 
-# Sanity check (was script 15)
-
 def parse_repr(value):
     if not isinstance(value, str):
         return []
@@ -243,8 +223,6 @@ def run_sanity(args) -> None:
     print(f"[sanity] Done → {out_dir}  |  OK: {n_ok}  flagged: {len(flags_df) - n_ok}")
 
 
-# BERTopic native views (was script 16)
-
 def run_native(args) -> None:
     out_dir = STEP_DIR / "native"
     out_figs = out_dir / "figures"
@@ -256,11 +234,8 @@ def run_native(args) -> None:
     topic_model = BERTopic.load(str(MODEL_DIR))
 
     print("[native] Loading chunks...")
-    # IMPORTANT: do NOT filter rows here. BERTopic's topics_per_class and
-    # topics_over_time use self.topics_ internally, which has the same length
-    # as the chunks the model was fit on. Filtering before would create a
-    # length mismatch ("All arrays must be of the same length"). We filter
-    # the OUTPUT instead.
+    # Don't filter rows before topics_per_class / topics_over_time: BERTopic
+    # uses self.topics_ internally and needs the same length. Filter the output.
     chunks = pd.read_csv(CHUNKS_TOPICS_PATH)
     chunks[DOC_ID_COL] = chunks[DOC_ID_COL].astype(str)
 
@@ -276,7 +251,6 @@ def run_native(args) -> None:
     classes = chunks["party_family"].tolist()
     tpc = topic_model.topics_per_class(docs, classes=classes, global_tuning=args.global_tuning)
 
-    # Filter output: drop noise topic and excluded families
     tpc = tpc[tpc["Topic"] != -1]
     tpc = tpc[~tpc["Class"].isin(EXCLUDED_FAMILIES)]
     tpc.to_csv(out_dir / "topics_per_class.csv", index=False, encoding="utf-8-sig")
@@ -289,17 +263,26 @@ def run_native(args) -> None:
 
     if YEAR_COL in chunks.columns:
         print("[native] topics_over_time...")
-        # Same constraint: full length needed. Fill missing years with placeholder.
         years_full = chunks[YEAR_COL].copy()
         years_filled = years_full.fillna(-1).astype(int).astype(str).tolist()
         n_unique = sum(1 for y in set(years_filled) if y != "-1")
         nr_bins = min(args.nr_bins, n_unique)
 
-        tot = topic_model.topics_over_time(
-            docs, timestamps=years_filled,
-            global_tuning=args.global_tuning, nr_bins=nr_bins,
-        )
-        # Filter output: drop noise topic and the placeholder year
+        # pandas 2.2 removed infer_datetime_format; older BERTopic still passes it.
+        import pandas as _pd
+        _orig_to_datetime = _pd.to_datetime
+        def _patched_to_datetime(*a, **kw):
+            kw.pop("infer_datetime_format", None)
+            return _orig_to_datetime(*a, **kw)
+        _pd.to_datetime = _patched_to_datetime
+
+        try:
+            tot = topic_model.topics_over_time(
+                docs, timestamps=years_filled,
+                global_tuning=args.global_tuning, nr_bins=nr_bins,
+            )
+        finally:
+            _pd.to_datetime = _orig_to_datetime
         tot = tot[tot["Topic"] != -1]
         tot = tot[~tot["Timestamp"].astype(str).str.contains("-1")]
         tot.to_csv(out_dir / "topics_over_time.csv", index=False, encoding="utf-8-sig")
