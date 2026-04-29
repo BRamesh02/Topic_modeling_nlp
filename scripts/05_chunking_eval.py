@@ -1,8 +1,11 @@
 """
-Step 4b — Chunking Methods Evaluation
+Step 5 — Chunking Methods Evaluation (on actual preprocessed corpus)
+
+Compares 3 chunking strategies (sentence / paragraph / fixed-length) on a sample
+of corpus_preprocessed.csv to justify the choice used in step 6.
 
 Input:
-legislatives93/*.txt (default)
+data/corpus_preprocessed.csv  (uses text_clean column — the same text step 6 will chunk)
 
 Outputs:
 outputs/chunking_methods_eval.csv
@@ -24,31 +27,34 @@ from gensim.models.coherencemodel import CoherenceModel
 from gensim.utils import simple_preprocess
 
 
-# Paths
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-OUTPUT_DIR = PROJECT_ROOT / "outputs"
-DEFAULT_INPUT_DIR = PROJECT_ROOT.parent / "legislatives81" / "text_files"/ "1981" / "legislatives"
+OUTPUTS = PROJECT_ROOT / "outputs"
 
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+PREV_DIR = OUTPUTS / "04_preprocessing"
+STEP_DIR = OUTPUTS / "05_chunking_eval"
+REPORTS_DIR = STEP_DIR / "reports"
+FIG_DIR = STEP_DIR / "figures"
+
+STEP_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+FIG_DIR.mkdir(parents=True, exist_ok=True)
+
+INPUT_PATH = PREV_DIR / "corpus_preprocessed.csv"
 
 
-# Parameters
-
-DEFAULT_MAX_FILES = 5
+DEFAULT_TEXT_COL = "text_clean"
+DEFAULT_SAMPLE = 200
 DEFAULT_MIN_WORDS = 20
-DEFAULT_FIXED_SIZES = [100, 200, 300]  # test 2 or 3 sizes from CLI if needed
+DEFAULT_FIXED_SIZES = [100, 150, 200, 300]
 DEFAULT_TOPN = 10
+DEFAULT_RANDOM_STATE = 42
 
-
-# Chunking
 
 def chunk_by_sentence(text: str, min_words: int) -> List[str]:
     if not isinstance(text, str) or not text.strip():
         return []
-
-    parts = [p.strip() for p in text.split(".")]
-    return [p for p in parts if len(p.split()) >= min_words]
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    return [p.strip() for p in parts if len(p.split()) >= min_words]
 
 
 def _is_heading_line(line: str, max_words: int) -> bool:
@@ -65,7 +71,6 @@ def _is_heading_line(line: str, max_words: int) -> bool:
 def _join_lines(lines: List[str]) -> str:
     if not lines:
         return ""
-
     out = lines[0]
     for line in lines[1:]:
         if out.endswith("-"):
@@ -89,14 +94,12 @@ def chunk_by_paragraph(text: str, min_words: int, heading_max_words: int = 8) ->
                 paragraphs.append(_join_lines(buffer))
                 buffer = []
             continue
-
         if _is_heading_line(line, max_words=heading_max_words):
             if buffer:
                 paragraphs.append(_join_lines(buffer))
                 buffer = []
             paragraphs.append(line)
             continue
-
         buffer.append(line)
 
     if buffer:
@@ -105,7 +108,7 @@ def chunk_by_paragraph(text: str, min_words: int, heading_max_words: int = 8) ->
     return [p for p in paragraphs if len(p.split()) >= min_words]
 
 
-def chunk_by_fixed_length(text: str, chunk_size: int, min_words: int) -> List[str]:
+def chunk_by_fixed_length(text: str, chunk_size: int, min_words: int, overlap: int = 0) -> List[str]:
     if not isinstance(text, str) or not text.strip():
         return []
 
@@ -114,17 +117,17 @@ def chunk_by_fixed_length(text: str, chunk_size: int, min_words: int) -> List[st
         return []
 
     chunks: List[str] = []
-    for start in range(0, len(words), chunk_size):
+    step = max(1, chunk_size - overlap)
+    for start in range(0, len(words), step):
         chunk_words = words[start : start + chunk_size]
         if len(chunk_words) >= min_words:
             chunks.append(" ".join(chunk_words))
+        if start + chunk_size >= len(words):
+            break
     return chunks
 
 
-# Evaluation
-
 def tokenize(text: str) -> List[str]:
-    # simple_preprocess removes punctuation and lowercases; deacc keeps ASCII output
     return simple_preprocess(text, deacc=True, min_len=2)
 
 
@@ -198,45 +201,37 @@ def compute_stats(chunks: List[str], topn: int) -> dict:
     }
 
 
-# IO
-
-def load_texts(input_dir: Path, max_files: int) -> List[str]:
-    files = sorted(input_dir.glob("*.txt"))
-    if max_files is not None and max_files > 0:
-        files = files[:max_files]
-
-    texts: List[str] = []
-    for path in files:
-        try:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        if text.strip():
-            texts.append(text)
-
-    return texts
-
-
-# Main
-
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate chunking methods on sample texts.")
-    parser.add_argument("--input-dir", type=Path, default=DEFAULT_INPUT_DIR)
-    parser.add_argument("--max-files", type=int, default=DEFAULT_MAX_FILES)
+    parser = argparse.ArgumentParser(description="Evaluate chunking methods on the actual corpus.")
+    parser.add_argument("--text-col", type=str, default=DEFAULT_TEXT_COL)
+    parser.add_argument("--sample", type=int, default=DEFAULT_SAMPLE,
+                        help="Number of documents to sample (0 = all).")
     parser.add_argument("--min-words", type=int, default=DEFAULT_MIN_WORDS)
     parser.add_argument("--fixed-sizes", type=int, nargs="+", default=DEFAULT_FIXED_SIZES)
+    parser.add_argument("--overlap", type=int, default=30)
     parser.add_argument("--topn", type=int, default=DEFAULT_TOPN)
-    parser.add_argument("--output-csv", type=Path, default=OUTPUT_DIR / "chunking_methods_eval.csv")
-    parser.add_argument("--output-txt", type=Path, default=OUTPUT_DIR / "chunking_methods_eval.txt")
+    parser.add_argument("--random-state", type=int, default=DEFAULT_RANDOM_STATE)
+    parser.add_argument("--output-csv", type=Path, default=STEP_DIR / "chunking_methods_eval.csv")
+    parser.add_argument("--output-txt", type=Path, default=REPORTS_DIR / "chunking_methods_eval.txt")
 
     args = parser.parse_args()
 
-    if not args.input_dir.exists():
-        raise FileNotFoundError(f"Input dir not found: {args.input_dir}")
+    if not INPUT_PATH.exists():
+        raise FileNotFoundError(f"Input file not found: {INPUT_PATH}")
 
-    texts = load_texts(args.input_dir, args.max_files)
-    if not texts:
-        raise ValueError("No input texts loaded. Check input directory and file encoding.")
+    print(f"Loading {INPUT_PATH}...")
+    df = pd.read_csv(INPUT_PATH)
+
+    if args.text_col not in df.columns:
+        raise ValueError(f"Column not found: {args.text_col}")
+
+    df = df[df[args.text_col].notna()].copy()
+
+    if args.sample and args.sample > 0 and len(df) > args.sample:
+        df = df.sample(n=args.sample, random_state=args.random_state)
+
+    texts = df[args.text_col].astype(str).tolist()
+    print(f"Documents used: {len(texts)} (text column: {args.text_col})")
 
     results = []
 
@@ -244,34 +239,35 @@ def main() -> None:
     sentence_chunks: List[str] = []
     for text in texts:
         sentence_chunks.extend(chunk_by_sentence(text, min_words=args.min_words))
-    stats = compute_stats(sentence_chunks, topn=args.topn)
-    results.append({"method": "sentence_dot", **stats})
+    results.append({"method": "sentence", **compute_stats(sentence_chunks, topn=args.topn)})
 
     # Paragraph
     paragraph_chunks: List[str] = []
     for text in texts:
         paragraph_chunks.extend(chunk_by_paragraph(text, min_words=args.min_words))
-    stats = compute_stats(paragraph_chunks, topn=args.topn)
-    results.append({"method": "paragraph_newline", **stats})
+    results.append({"method": "paragraph", **compute_stats(paragraph_chunks, topn=args.topn)})
 
-    # Fixed length
+    # Fixed length (with and without overlap)
     for size in args.fixed_sizes:
-        fixed_chunks: List[str] = []
+        chunks_no_overlap: List[str] = []
         for text in texts:
-            fixed_chunks.extend(
-                chunk_by_fixed_length(text, chunk_size=size, min_words=args.min_words)
+            chunks_no_overlap.extend(
+                chunk_by_fixed_length(text, chunk_size=size, min_words=args.min_words, overlap=0)
             )
-        stats = compute_stats(fixed_chunks, topn=args.topn)
-        results.append({"method": f"fixed_{size}", **stats})
+        results.append({"method": f"fixed_{size}", **compute_stats(chunks_no_overlap, topn=args.topn)})
 
-    df = pd.DataFrame(results)
+        chunks_overlap: List[str] = []
+        for text in texts:
+            chunks_overlap.extend(
+                chunk_by_fixed_length(text, chunk_size=size, min_words=args.min_words, overlap=args.overlap)
+            )
+        results.append({"method": f"fixed_{size}_ov{args.overlap}", **compute_stats(chunks_overlap, topn=args.topn)})
 
-    # Simple combined score (higher is better) to compare quickly
-    df["combined_score"] = df["coherence_c_v"] * df["topic_diversity"]
+    df_res = pd.DataFrame(results)
+    df_res["combined_score"] = df_res["coherence_c_v"] * df_res["topic_diversity"]
+    df_sorted = df_res.sort_values(by="combined_score", ascending=False)
 
-    df_sorted = df.sort_values(by="combined_score", ascending=False)
-
-    print("Chunking methods evaluation")
+    print("\nChunking methods evaluation")
     print(df_sorted.to_string(index=False))
 
     df_sorted.to_csv(args.output_csv, index=False, encoding="utf-8-sig")
@@ -279,15 +275,49 @@ def main() -> None:
 
     with open(args.output_txt, "w", encoding="utf-8") as f:
         f.write("=== CHUNKING METHODS EVALUATION ===\n\n")
-        f.write(f"Input dir: {args.input_dir}\n")
-        f.write(f"Files loaded: {len(texts)}\n")
+        f.write(f"Input: {INPUT_PATH}\n")
+        f.write(f"Text column: {args.text_col}\n")
+        f.write(f"Documents used: {len(texts)}\n")
         f.write(f"Min words per chunk: {args.min_words}\n")
-        f.write(f"Fixed sizes: {args.fixed_sizes}\n")
+        f.write(f"Fixed sizes: {args.fixed_sizes} (overlap variant: {args.overlap})\n")
         f.write(f"Topn words per chunk: {args.topn}\n\n")
         f.write(df_sorted.to_string(index=False))
         f.write("\n")
 
     print(f"Saved TXT: {args.output_txt}")
+
+    # Figure: comparison methods
+
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    valid = df_sorted.dropna(subset=["coherence_c_v", "topic_diversity"])
+
+    # Scatter coherence vs diversity
+    for _, r in valid.iterrows():
+        color = "#c44e52" if "fixed" in str(r["method"]) else "#4a7ab5"
+        axes[0].scatter(r["coherence_c_v"], r["topic_diversity"], s=80, color=color)
+        axes[0].annotate(str(r["method"]), (r["coherence_c_v"], r["topic_diversity"]),
+                         fontsize=8, xytext=(5, 5), textcoords="offset points")
+    axes[0].set_xlabel("Coherence (c_v)")
+    axes[0].set_ylabel("Topic diversity")
+    axes[0].set_title("Chunking method: coherence vs topic diversity")
+    axes[0].grid(alpha=0.3)
+
+    # Bar chart combined score
+    df_plot = valid.sort_values("combined_score", ascending=True)
+    axes[1].barh(range(len(df_plot)), df_plot["combined_score"].values, color="#4a7ab5")
+    axes[1].set_yticks(range(len(df_plot)))
+    axes[1].set_yticklabels(df_plot["method"].values, fontsize=9)
+    axes[1].set_xlabel("Combined score (coherence × diversity)")
+    axes[1].set_title("Chunking methods ranked")
+
+    plt.tight_layout()
+    plt.savefig(FIG_DIR / "chunking_methods_comparison.png", dpi=150)
+    plt.close()
+
+    print(f"Saved figure: {FIG_DIR / 'chunking_methods_comparison.png'}")
     print("Done.")
 
 

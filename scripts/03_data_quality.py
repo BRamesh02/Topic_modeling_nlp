@@ -18,27 +18,22 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-# =====================
-# Paths
-# =====================
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+OUTPUTS = PROJECT_ROOT / "outputs"
 
-DATA_DIR = PROJECT_ROOT / "data"
-OUTPUT_DIR = PROJECT_ROOT / "outputs"
-FIG_DIR = OUTPUT_DIR / "figures"
+PREV_DIR = OUTPUTS / "01_data_load"
+STEP_DIR = OUTPUTS / "03_data_quality"
+FIG_DIR = STEP_DIR / "figures"
+REPORTS_DIR = STEP_DIR / "reports"
 
-INPUT_PATH = DATA_DIR / "corpus_joined.csv"
-OUTPUT_PATH = DATA_DIR / "corpus_cleaned.csv"
-STATS_PATH = OUTPUT_DIR / "ocr_quality.txt"
-
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+STEP_DIR.mkdir(parents=True, exist_ok=True)
 FIG_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
+INPUT_PATH = PREV_DIR / "corpus_joined.csv"
+OUTPUT_PATH = STEP_DIR / "corpus_cleaned.csv"
+STATS_PATH = REPORTS_DIR / "ocr_quality.txt"
 
-# =====================
-# OCR quality vocabulary
-# =====================
 
 COMMON_WORDS = set([
     "le", "la", "les", "de", "des", "du", "un", "une", "et", "en", "à", "pour",
@@ -61,19 +56,11 @@ alors notre votre leur leurs mes tes mon ma ton ta lui eux moi toi ici là
 """.split())
 
 
-# =====================
-# Tokenization helpers
-# =====================
-
 def extract_tokens(text: str) -> list[str]:
     if not isinstance(text, str):
         return []
     return re.findall(r"[a-zàâäéèêëîïôöùûüçœæ]+", text.lower())
 
-
-# =====================
-# OCR quality function
-# =====================
 
 def evaluate_text(text):
     tokens = extract_tokens(text)
@@ -94,10 +81,6 @@ def evaluate_text(text):
         "score": score
     }
 
-
-# =====================
-# OCR plots
-# =====================
 
 def make_quality_plots(df):
     plt.figure(figsize=(8, 5))
@@ -138,10 +121,6 @@ def make_quality_plots(df):
     plt.savefig(FIG_DIR / "kept_removed_by_year.png", dpi=150)
     plt.close()
 
-
-# =====================
-# Lexical diagnostic plots
-# =====================
 
 def make_lexical_diagnostic_plots(df):
     all_tokens = []
@@ -233,7 +212,7 @@ def make_lexical_diagnostic_plots(df):
     plt.close()
 
     # Save lexical stats
-    lexical_stats_path = OUTPUT_DIR / "lexical_diagnostics.txt"
+    lexical_stats_path = REPORTS_DIR / "lexical_diagnostics.txt"
     with open(lexical_stats_path, "w", encoding="utf-8") as f:
         f.write("=== LEXICAL DIAGNOSTICS BEFORE STOPWORD REMOVAL ===\n\n")
         f.write(f"Total tokens: {total_tokens}\n")
@@ -254,10 +233,6 @@ def make_lexical_diagnostic_plots(df):
 
     print(f"Saved lexical diagnostics → {lexical_stats_path}")
 
-
-# =====================
-# Main
-# =====================
 
 def main():
     print("Loading dataset...")

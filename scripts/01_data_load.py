@@ -10,10 +10,6 @@ import pandas as pd
 from tqdm import tqdm
 
 
-# =====================
-# Setup projet
-# =====================
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 
@@ -21,24 +17,22 @@ os.chdir(PROJECT_ROOT)
 sys.path.append(str(PROJECT_ROOT))
 
 
-# =====================
-# Paramètres
-# =====================
-
 YEARS = ["1973", "1978", "1981", "1988", "1993"]
 
 DATA_DIR = PROJECT_ROOT / "data"
-OUTPUT_DIR = PROJECT_ROOT / "outputs"
+STEP_DIR = PROJECT_ROOT / "outputs" / "01_data_load"
+REPORTS_DIR = STEP_DIR / "reports"
+FIG_DIR = STEP_DIR / "figures"
+
+STEP_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 CSV_PATH = DATA_DIR / "archelect_search.csv"
 TEXT_DIR = DATA_DIR
-OUTPUT_PATH = DATA_DIR / "corpus_joined.csv"
-STATS_PATH = OUTPUT_DIR / "data_info.txt"
+OUTPUT_PATH = STEP_DIR / "corpus_joined.csv"
+STATS_PATH = REPORTS_DIR / "data_info.txt"
 
-
-# =====================
-# Chargement CSV
-# =====================
 
 def load_metadata(csv_path: Path) -> pd.DataFrame:
     df = pd.read_csv(csv_path, dtype=str)
@@ -50,10 +44,6 @@ def load_metadata(csv_path: Path) -> pd.DataFrame:
 
     return df
 
-
-# =====================
-# Mapping fichiers texte
-# =====================
 
 def build_id_to_path(text_root: Path) -> dict:
     id_to_path = {}
@@ -70,10 +60,6 @@ def build_id_to_path(text_root: Path) -> dict:
     return id_to_path
 
 
-# =====================
-# Lecture texte
-# =====================
-
 def load_text_file(path):
     if pd.isna(path):
         return None
@@ -82,10 +68,6 @@ def load_text_file(path):
     except Exception:
         return None
 
-
-# =====================
-# Main
-# =====================
 
 def main():
     print("Chargement des métadonnées...")
@@ -111,18 +93,9 @@ def main():
     cols = [c for c in cols if c in df.columns]
     df = df[cols].copy()
 
-    # =====================
-    # Sauvegarde CSV
-    # =====================
 
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")
 
-    # =====================
-    # Stats
-    # =====================
-
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     with open(STATS_PATH, "w", encoding="utf-8") as f:
 
@@ -155,9 +128,7 @@ def main():
             f.write(str(df["titulaire-liste"].value_counts().head(20)))
             f.write("\n\n")
 
-        # =====================
         # PAR ANNEE — soutien
-        # =====================
 
         if "titulaire-soutien" in df.columns:
             f.write("===== TITULAIRE-SOUTIEN PAR ANNEE =====\n\n")
@@ -171,9 +142,7 @@ def main():
                 f.write(sub["titulaire-soutien"].value_counts(dropna=False).head(10).to_string())
                 f.write("\n")
 
-        # =====================
         # PAR ANNEE — liste
-        # =====================
 
         if "titulaire-liste" in df.columns:
             f.write("\n===== TITULAIRE-LISTE PAR ANNEE =====\n\n")
@@ -187,8 +156,52 @@ def main():
                 f.write(sub["titulaire-liste"].value_counts(dropna=False).head(10).to_string())
                 f.write("\n")
 
+
+    import matplotlib.pyplot as plt
+
+    # 1. Documents per year
+    fig, ax = plt.subplots(figsize=(8, 5))
+    counts = df["year"].value_counts().sort_index()
+    ax.bar(counts.index.astype(str), counts.values, color="#4a7ab5")
+    ax.set_title("Documents per election year")
+    ax.set_xlabel("Year")
+    ax.set_ylabel("Number of documents")
+    for i, v in enumerate(counts.values):
+        ax.text(i, v + max(counts.values) * 0.01, str(v), ha="center", fontsize=9)
+    plt.tight_layout()
+    plt.savefig(FIG_DIR / "documents_per_year.png", dpi=150)
+    plt.close()
+
+    # 2. Top 15 parties (titulaire-soutien)
+    if "titulaire-soutien" in df.columns:
+        top_parties = df["titulaire-soutien"].value_counts().head(15)
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.barh(range(len(top_parties))[::-1], top_parties.values, color="#4a7ab5")
+        ax.set_yticks(range(len(top_parties))[::-1])
+        ax.set_yticklabels([str(s)[:50] for s in top_parties.index], fontsize=9)
+        ax.set_title("Top 15 partis (titulaire-soutien)")
+        ax.set_xlabel("Number of documents")
+        plt.tight_layout()
+        plt.savefig(FIG_DIR / "top_parties.png", dpi=150)
+        plt.close()
+
+    # 3. Text length distribution
+    fig, ax = plt.subplots(figsize=(8, 5))
+    valid = df[df["text_length"] > 0]["text_length"]
+    ax.hist(valid, bins=60, color="#4a7ab5", alpha=0.85)
+    ax.axvline(valid.median(), color="red", linestyle="--", label=f"median = {int(valid.median())}")
+    ax.set_xlabel("Text length (words)")
+    ax.set_ylabel("Number of documents")
+    ax.set_title("Document length distribution")
+    ax.set_xlim(0, valid.quantile(0.99))
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(FIG_DIR / "text_length_distribution.png", dpi=150)
+    plt.close()
+
     print("\n Corpus sauvegardé :", OUTPUT_PATH)
     print(" Stats sauvegardées :", STATS_PATH)
+    print(" Figures sauvegardées :", FIG_DIR)
     print("\n--- QUALITÉ DE JOINTURE ---")
     
 

@@ -1,11 +1,15 @@
 """
-Step 4 — Chunking + Embeddings
+Step 6 — Chunking + Embeddings
+
+Chunks the natural-text version (text_clean) so the sentence-transformer receives
+French sentences (not lemmatized stopword-stripped output). For BERTopic c-TF-IDF,
+step 7 uses a CountVectorizer with French stopwords directly.
 
 Input:
-data/corpus_preprocessed.csv
+data/corpus_preprocessed.csv  (must contain text_clean column)
 
 Outputs:
-data/corpus_chunks.csv
+data/corpus_chunks.csv          (chunk_text = chunk of text_clean)
 data/chunk_embeddings.npy
 outputs/chunking_embedding_info.txt
 """
@@ -18,67 +22,63 @@ from tqdm import tqdm
 import torch
 
 
-# Paths
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+OUTPUTS = PROJECT_ROOT / "outputs"
 
-DATA_DIR = PROJECT_ROOT / "data"
-OUTPUT_DIR = PROJECT_ROOT / "outputs"
+PREV_DIR = OUTPUTS / "04_preprocessing"
+STEP_DIR = OUTPUTS / "06_chunking_embedding"
+REPORTS_DIR = STEP_DIR / "reports"
+FIG_DIR = STEP_DIR / "figures"
 
-INPUT_PATH = DATA_DIR / "corpus_preprocessed.csv"
-CHUNKS_PATH = DATA_DIR / "corpus_chunks.csv"
-EMBEDDINGS_PATH = DATA_DIR / "chunk_embeddings.npy"
-INFO_PATH = OUTPUT_DIR / "chunking_embedding_info.txt"
+STEP_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+FIG_DIR.mkdir(parents=True, exist_ok=True)
 
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+INPUT_PATH = PREV_DIR / "corpus_preprocessed.csv"
+CHUNKS_PATH = STEP_DIR / "corpus_chunks.csv"
+EMBEDDINGS_PATH = STEP_DIR / "chunk_embeddings.npy"
+INFO_PATH = REPORTS_DIR / "chunking_embedding_info.txt"
 
 
-# Parameters
+TEXT_COL = "text_clean"  # natural French, no lemma, no stopword removal
 
-TEXT_COL = "text_preprocessed"
-
-CHUNK_SIZE = 150      # nombre de mots par chunk
-CHUNK_OVERLAP = 30    # chevauchement entre chunks
-MIN_CHUNK_WORDS = 40  # supprime les morceaux trop courts
+CHUNK_SIZE = 150
+CHUNK_OVERLAP = 30
+MIN_CHUNK_WORDS = 40
 
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
-device = "mps" if torch.backends.mps.is_available() else "cpu" #device = "cuda" if torch.cuda.is_available() else "cpu"
-print("Device:", device)
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+elif torch.backends.mps.is_available():
+    DEVICE = "mps"
+else:
+    DEVICE = "cpu"
 
-model = SentenceTransformer(MODEL_NAME, device=device)
+print("Device:", DEVICE)
 
-
-# Chunking
 
 def split_into_chunks(text, chunk_size=150, overlap=30, min_words=40):
     if not isinstance(text, str) or not text.strip():
         return []
 
     words = text.split()
-
     if len(words) < min_words:
         return []
 
     chunks = []
     start = 0
-
     while start < len(words):
         end = start + chunk_size
         chunk_words = words[start:end]
-
         if len(chunk_words) >= min_words:
             chunks.append(" ".join(chunk_words))
-
         if end >= len(words):
             break
-
         start += chunk_size - overlap
 
     return chunks
 
-
-# Main
 
 def main():
     print("Loading preprocessed corpus...")
@@ -86,7 +86,7 @@ def main():
     print(f"Documents loaded: {len(df)}")
 
     if TEXT_COL not in df.columns:
-        raise ValueError(f"Missing text column: {TEXT_COL}")
+        raise ValueError(f"Missing text column: {TEXT_COL}. Run 04_preprocessing.py first.")
 
     print("Creating chunks...")
 
@@ -103,7 +103,6 @@ def main():
         "titulaire-prenom",
         "titulaire-nom",
     ]
-
     metadata_cols = [c for c in metadata_cols if c in df.columns]
 
     for _, row in tqdm(df.iterrows(), total=len(df), desc="Chunking"):
@@ -113,7 +112,6 @@ def main():
             overlap=CHUNK_OVERLAP,
             min_words=MIN_CHUNK_WORDS,
         )
-
         for i, chunk in enumerate(chunks):
             new_row = {col: row[col] for col in metadata_cols}
             new_row["doc_id"] = row["id"]
@@ -126,18 +124,18 @@ def main():
     df_chunks = pd.DataFrame(rows)
 
     print(f"Chunks created: {len(df_chunks)}")
-    print(f"Average chunks per document: {len(df_chunks) / len(df):.2f}")
+    print(f"Average chunks per document: {len(df_chunks) / max(1, len(df)):.2f}")
 
     df_chunks.to_csv(CHUNKS_PATH, index=False, encoding="utf-8-sig")
     print(f"Saved chunks: {CHUNKS_PATH}")
 
     print("Loading embedding model...")
-    model = SentenceTransformer(MODEL_NAME)
+    model = SentenceTransformer(MODEL_NAME, device=DEVICE)
 
     print("Computing embeddings...")
     embeddings = model.encode(
         df_chunks["chunk_text"].tolist(),
-        batch_size=128 if device == "mps" else 64,
+        batch_size=128 if DEVICE != "cpu" else 32,
         show_progress_bar=True,
         convert_to_numpy=True,
         normalize_embeddings=True,
@@ -149,12 +147,14 @@ def main():
 
     with open(INFO_PATH, "w", encoding="utf-8") as f:
         f.write("=== CHUNKING + EMBEDDING INFO ===\n\n")
+        f.write(f"Input column: {TEXT_COL} (natural French, kept for embeddings)\n")
         f.write(f"Input documents: {len(df)}\n")
         f.write(f"Chunks created: {len(df_chunks)}\n")
-        f.write(f"Average chunks per document: {len(df_chunks) / len(df):.2f}\n\n")
+        f.write(f"Average chunks per document: {len(df_chunks) / max(1, len(df)):.2f}\n\n")
         f.write(f"Chunk size: {CHUNK_SIZE}\n")
         f.write(f"Chunk overlap: {CHUNK_OVERLAP}\n")
         f.write(f"Minimum chunk words: {MIN_CHUNK_WORDS}\n\n")
+        f.write(f"Device: {DEVICE}\n")
         f.write(f"Embedding model: {MODEL_NAME}\n")
         f.write(f"Embedding matrix shape: {embeddings.shape}\n\n")
 
@@ -173,6 +173,37 @@ def main():
             f.write("\n")
 
     print(f"Saved info: {INFO_PATH}")
+
+
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Chunks per document
+    chunks_per_doc = df_chunks.groupby("doc_id").size()
+    axes[0].hist(chunks_per_doc.values, bins=40, color="#4a7ab5", alpha=0.85)
+    axes[0].axvline(chunks_per_doc.median(), color="red", linestyle="--",
+                    label=f"median = {int(chunks_per_doc.median())}")
+    axes[0].set_xlabel("Chunks per document")
+    axes[0].set_ylabel("Number of documents")
+    axes[0].set_title(f"Chunks per document (n={len(df_chunks)} chunks total)")
+    axes[0].legend()
+
+    # Chunks per year
+    if "year" in df_chunks.columns:
+        per_year = df_chunks["year"].value_counts().sort_index()
+        axes[1].bar(per_year.index.astype(str), per_year.values, color="#4a7ab5")
+        axes[1].set_xlabel("Year")
+        axes[1].set_ylabel("Number of chunks")
+        axes[1].set_title("Chunks per election year")
+        for i, v in enumerate(per_year.values):
+            axes[1].text(i, v + max(per_year.values) * 0.01, str(v), ha="center", fontsize=9)
+
+    plt.tight_layout()
+    plt.savefig(FIG_DIR / "chunks_distribution.png", dpi=150)
+    plt.close()
+
+    print(f"Saved figure: {FIG_DIR / 'chunks_distribution.png'}")
     print("Done.")
 
 

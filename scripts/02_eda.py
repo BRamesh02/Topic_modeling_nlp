@@ -27,32 +27,27 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-# =====================
-# Paths
-# =====================
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+OUTPUTS = PROJECT_ROOT / "outputs"
 
-DATA_DIR = PROJECT_ROOT / "data"
-OUTPUT_DIR = PROJECT_ROOT / "outputs"
-FIG_DIR = OUTPUT_DIR / "figures"
+PREV_DIR = OUTPUTS / "01_data_load"
+STEP_DIR = OUTPUTS / "02_eda"
+FIG_DIR = STEP_DIR / "figures"
+REPORTS_DIR = STEP_DIR / "reports"
 
-INPUT_PATH = DATA_DIR / "corpus_joined.csv"
+STEP_DIR.mkdir(parents=True, exist_ok=True)
+FIG_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+INPUT_PATH = PREV_DIR / "corpus_joined.csv"
 STOPWORDS_PATH = PROJECT_ROOT / "stop_word_fr.txt"
 
-INFO_PATH = OUTPUT_DIR / "eda_info.txt"
-TOP_WORDS_YEAR_PATH = OUTPUT_DIR / "eda_top_words_by_year.csv"
-TOP_WORDS_PARTY_PATH = OUTPUT_DIR / "eda_top_words_by_party.csv"
-KEYWORD_TRENDS_PATH = OUTPUT_DIR / "eda_keyword_trends.csv"
+INFO_PATH = REPORTS_DIR / "eda_info.txt"
+TOP_WORDS_YEAR_PATH = STEP_DIR / "eda_top_words_by_year.csv"
+TOP_WORDS_PARTY_PATH = STEP_DIR / "eda_top_words_by_party.csv"
+KEYWORD_TRENDS_PATH = STEP_DIR / "eda_keyword_trends.csv"
 KEYWORD_TRENDS_FIG = FIG_DIR / "eda_keyword_trends.png"
 
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-FIG_DIR.mkdir(parents=True, exist_ok=True)
-
-
-# =====================
-# Parameters
-# =====================
 
 TEXT_COL = "text"
 YEAR_COL = "year"
@@ -71,10 +66,6 @@ DEFAULT_KEYWORDS = [
     "europe",
 ]
 
-
-# =====================
-# Helpers
-# =====================
 
 def strip_accents(text: str) -> str:
     if not isinstance(text, str):
@@ -180,10 +171,6 @@ def plot_keyword_trends(df: pd.DataFrame, year_col: str, output_path: Path) -> N
     plt.savefig(output_path, dpi=150)
     plt.close()
 
-
-# =====================
-# Main
-# =====================
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="EDA: word usage by year/party.")
