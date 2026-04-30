@@ -36,6 +36,7 @@ STEPS = [
     (10, "10_analyses.py",             ["--all"],         "Clustering + specialisation analyses", 2),
     (11, "11_visualizations.py",       ["--all"],         "Projection + sanity + native viz", 5),
     (12, "12_sentiment.py",            [],                "Sentiment scoring on shared topics", 30),
+    (13, "12b_topic_positioning.py",    [],                "Party/topic positioning trajectories", 3),
 ]
 
 
