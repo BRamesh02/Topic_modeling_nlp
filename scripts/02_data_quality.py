@@ -1,13 +1,6 @@
 """
-Step 2 — OCR Quality Assessment + lexical diagnostics
-
-Input:
-data/corpus_joined.csv
-
-Outputs:
-data/corpus_cleaned.csv
-outputs/ocr_quality.txt
-figures/*.png
+Step 2 — OCR quality scoring, filter, and lexical diagnostics on the joined
+corpus.
 """
 
 from pathlib import Path
@@ -22,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS = PROJECT_ROOT / "outputs"
 
 PREV_DIR = OUTPUTS / "01_data_load"
-STEP_DIR = OUTPUTS / "03_data_quality"
+STEP_DIR = OUTPUTS / "02_data_quality"
 FIG_DIR = STEP_DIR / "figures"
 REPORTS_DIR = STEP_DIR / "reports"
 
@@ -44,7 +37,7 @@ COMMON_WORDS = set([
 ])
 
 
-# Stopwords only for diagnostics, not filtering here
+# Used only for the diagnostic plots, not for filtering.
 DIAGNOSTIC_STOPWORDS = set("""
 le la les de des du un une et en à au aux ce ces son ses sa se ne pas que qui
 il elle on nous vous ils elles je tu est sont par pour sur avec dans plus mais

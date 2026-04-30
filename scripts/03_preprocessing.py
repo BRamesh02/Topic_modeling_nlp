@@ -1,18 +1,11 @@
 """
-Step 4 — Text Cleaning, Lemmatization, Stopword removal
+Step 3 — Two-track preprocessing.
 
-Input:
-data/corpus_cleaned.csv
-stop_word_fr.txt
+  text_clean         lightly cleaned, kept for the sentence-transformer.
+  text_preprocessed  lemmatised + stopwords removed, used by LDA and c-TF-IDF.
 
-Output:
-data/corpus_preprocessed.csv  (columns: ..., text, text_clean, text_preprocessed)
-outputs/preprocessing_info.txt
-
-Notes:
-- text_clean: lightly cleaned, kept for sentence-transformer embeddings (natural French).
-- text_preprocessed: lemmatized + stopwords removed, kept for c-TF-IDF / LDA.
-- Order: normalize -> lemmatize -> remove_stopwords (so stopwords are matched on lemmas).
+Order: normalize -> lemmatize -> remove_stopwords (so stopwords are matched on
+the lemma form).
 """
 
 from pathlib import Path
@@ -28,8 +21,8 @@ nlp = spacy.load("fr_core_news_sm", disable=["parser", "ner"])
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS = PROJECT_ROOT / "outputs"
 
-PREV_DIR = OUTPUTS / "03_data_quality"
-STEP_DIR = OUTPUTS / "04_preprocessing"
+PREV_DIR = OUTPUTS / "02_data_quality"
+STEP_DIR = OUTPUTS / "03_preprocessing"
 REPORTS_DIR = STEP_DIR / "reports"
 FIG_DIR = STEP_DIR / "figures"
 
@@ -153,7 +146,6 @@ def normalize_text(text: str) -> str:
 
 
 def light_clean(text: str) -> str:
-    """text_clean: noise + campaign phrases removed, normalized; kept natural for embeddings."""
     text = remove_recurrent_noise(text)
     text = remove_generic_campaign_phrases(text)
     text = normalize_text(text)

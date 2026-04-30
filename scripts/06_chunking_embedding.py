@@ -1,17 +1,7 @@
 """
-Step 6 — Chunking + Embeddings
-
-Chunks the natural-text version (text_clean) so the sentence-transformer receives
-French sentences (not lemmatized stopword-stripped output). For BERTopic c-TF-IDF,
-step 7 uses a CountVectorizer with French stopwords directly.
-
-Input:
-data/corpus_preprocessed.csv  (must contain text_clean column)
-
-Outputs:
-data/corpus_chunks.csv          (chunk_text = chunk of text_clean)
-data/chunk_embeddings.npy
-outputs/chunking_embedding_info.txt
+Step 6 — Chunk text_clean into overlapping 150-word windows and embed each chunk
+with paraphrase-multilingual-MiniLM-L12-v2. Embeddings are L2-normalised and
+saved as a numpy array; chunks keep their parent doc_id and metadata.
 """
 
 from pathlib import Path
@@ -25,7 +15,7 @@ import torch
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS = PROJECT_ROOT / "outputs"
 
-PREV_DIR = OUTPUTS / "04_preprocessing"
+PREV_DIR = OUTPUTS / "03_preprocessing"
 STEP_DIR = OUTPUTS / "06_chunking_embedding"
 REPORTS_DIR = STEP_DIR / "reports"
 FIG_DIR = STEP_DIR / "figures"
@@ -40,7 +30,7 @@ EMBEDDINGS_PATH = STEP_DIR / "chunk_embeddings.npy"
 INFO_PATH = REPORTS_DIR / "chunking_embedding_info.txt"
 
 
-TEXT_COL = "text_clean"  # natural French, no lemma, no stopword removal
+TEXT_COL = "text_clean"
 
 CHUNK_SIZE = 150
 CHUNK_OVERLAP = 30
@@ -86,7 +76,7 @@ def main():
     print(f"Documents loaded: {len(df)}")
 
     if TEXT_COL not in df.columns:
-        raise ValueError(f"Missing text column: {TEXT_COL}. Run 04_preprocessing.py first.")
+        raise ValueError(f"Missing text column: {TEXT_COL}. Run 03_preprocessing.py first.")
 
     print("Creating chunks...")
 

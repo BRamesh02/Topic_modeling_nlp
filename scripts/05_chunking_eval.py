@@ -1,15 +1,7 @@
 """
-Step 5 — Chunking Methods Evaluation (on actual preprocessed corpus)
-
-Compares 3 chunking strategies (sentence / paragraph / fixed-length) on a sample
-of corpus_preprocessed.csv to justify the choice used in step 6.
-
-Input:
-data/corpus_preprocessed.csv  (uses text_clean column — the same text step 6 will chunk)
-
-Outputs:
-outputs/chunking_methods_eval.csv
-outputs/chunking_methods_eval.txt
+Step 5 — Compare three chunking strategies (sentence / paragraph / fixed-length)
+on a sample of text_clean. Reports c_v coherence and topic diversity per
+strategy. Used to justify the fixed-length choice picked up by step 6.
 """
 
 from __future__ import annotations
@@ -30,7 +22,7 @@ from gensim.utils import simple_preprocess
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS = PROJECT_ROOT / "outputs"
 
-PREV_DIR = OUTPUTS / "04_preprocessing"
+PREV_DIR = OUTPUTS / "03_preprocessing"
 STEP_DIR = OUTPUTS / "05_chunking_eval"
 REPORTS_DIR = STEP_DIR / "reports"
 FIG_DIR = STEP_DIR / "figures"

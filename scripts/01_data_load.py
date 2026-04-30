@@ -1,6 +1,6 @@
 """
-Étape 1 — Jointure textes OCR + métadonnées CSV
-+ export des stats complètes dans outputs/data_info.txt
+Étape 1 — Jointure des fichiers OCR avec les métadonnées CSV. Filtre sur les
+législatives 1973–1993 et exporte un descriptif dans data_info.txt.
 """
 
 import os
@@ -202,8 +202,6 @@ def main():
     print("\n Corpus sauvegardé :", OUTPUT_PATH)
     print(" Stats sauvegardées :", STATS_PATH)
     print(" Figures sauvegardées :", FIG_DIR)
-    print("\n--- QUALITÉ DE JOINTURE ---")
-    
 
 
 if __name__ == "__main__":
