@@ -121,7 +121,6 @@ def main():
 
     grand_total = time.time() - grand_start
 
-    # Summary
     print(f"\n{'='*78}")
     print("PIPELINE SUMMARY")
     print(f"{'='*78}")

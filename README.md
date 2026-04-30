@@ -9,9 +9,9 @@ Most commits are on Brian's account because the topic-modelling fits had to run 
 
 ---
 
-## What this project does
+## Project
 
-We apply topic modeling to the **Archelec corpus** of French legislative *professions de foi* from 1973 to 1993 (~21k documents) and ask whether political families of that period can be cartographed in a semantic space inferred from text alone. The pipeline goes from raw OCR text + metadata to candidate-level thematic profiles, then runs three downstream analyses: clustering by political family, thematic specialisation, and sentiment divergence on shared topics. The full report is in `report/`.
+Topic modeling on the Archelec corpus of French legislative *professions de foi* from 1973 to 1993 (~21k documents). The question is whether the political families of the period can be cartographed in a semantic space inferred from text alone. The pipeline produces candidate-level thematic profiles and three downstream analyses: clustering by political family, thematic specialisation, and sentiment divergence on shared topics.
 
 ENSAE NLP course (2025–2026), C. Kermorvant.
 
@@ -26,14 +26,13 @@ Blei, D., Ng, A., & Jordan, M. (2003). *Latent Dirichlet Allocation.* JMLR 3, 99
 
 ```text
 Topic_modeling_nlp/
-├── README.md                       # Project overview, structure, and usage
-├── pyproject.toml                  # Project metadata and dependencies
-├── stop_word_fr.txt                # Custom French stopword list (~700 entries)
-├── data/                           # Raw inputs only (CSV + OCR text files per year)
-├── outputs/                        # Per-step outputs (CSV, figures, reports)
+├── README.md
+├── pyproject.toml
+├── stop_word_fr.txt                # custom French stopword list (~700 entries)
+├── data/                           # raw inputs (CSV + OCR text files per year)
+├── outputs/                        # per-step outputs (CSV, figures, reports)
 ├── scripts/                        # 13 numbered pipeline scripts (01 → 13)
-├── report/                         # NeurIPS-style LaTeX report
-└── ntbks/                          # Exploratory notebooks
+└── ntbks/                          # exploratory notebooks
 ```
 
 <details>
@@ -245,11 +244,11 @@ Configuration:
 - UMAP: `n_neighbors=30`, `n_components=5`, cosine, `random_state=42`
 - HDBSCAN: `min_cluster_size=60`, `eom`
 - CountVectorizer: French stopwords list, `min_df=2`, `max_df=0.5`, `ngram_range=(1, 2)`
-- `reduce_topics(nr_topics=30)` — but `reduce_outliers` is **off**. The HDBSCAN noise label `-1` is kept as a "no thematic cluster" bucket (~54% of chunks). Step 9 drops these chunks before family-level aggregation.
+- `reduce_topics(nr_topics=30)`, `reduce_outliers` off. The HDBSCAN noise label `-1` is kept as a "no thematic cluster" bucket (~54% of chunks). Step 9 drops these chunks before family-level aggregation.
 
-Why this config: we tested the four combinations of `K ∈ {20, 30}` and `reduce_outliers ∈ {on, off}`. With `reduce_outliers=on`, 40–90% of chunks pile into a single mixed-family cluster; the cartography becomes unusable. Without it, K=30 keeps a dedicated topic for each major peripheral family (FN, PCF, LO, écologistes) plus three small ones (POE, PLN, PFN). K=20 fuses PCF and LO into one cluster, which we don't want. Details in `report/documents/p5_implementation.tex`.
+We tested the four combinations of `K ∈ {20, 30}` and `reduce_outliers ∈ {on, off}`. With `reduce_outliers=on`, 40–90% of chunks pile into a single mixed-family cluster. K=20 fuses PCF and LO into one cluster. K=30 with outliers off keeps a dedicated topic for each major peripheral family (FN, PCF, LO, écologistes) plus three smaller ones (POE, PLN, PFN).
 
-After the fit, topics are labelled by hand in `ntbks/topic_labelling.ipynb` (top words + 5 chunks from 5 distinct docs, then a label and family hint go into `outputs/07_bertopic/topic_labels.csv`).
+Topics are labelled by hand in `ntbks/topic_labelling.ipynb` (top words + 5 chunks from 5 distinct docs, then a label and family hint go into `outputs/07_bertopic/topic_labels.csv`).
 
 Outputs:
 - `outputs/07_bertopic/chunks_with_topics.csv`
@@ -327,7 +326,7 @@ python scripts/11_visualizations.py --viz native
 Three independent routines:
 
 - `projection`: 2D PCA / t-SNE of doc topic profiles, faceted by year, coloured by family.
-- `sanity`: per-topic digest with top c-TF-IDF terms, three representative chunks, and three heuristic flags (`GENERIC_BOILERPLATE`, `REPETITIVE_WORDS`, `DUPLICATE_CHUNKS`). The `DUPLICATE_CHUNKS` flag is what surfaced the centrally-distributed-templates side finding.
+- `sanity`: per-topic digest with top c-TF-IDF terms, three representative chunks, and three heuristic flags (`GENERIC_BOILERPLATE`, `REPETITIVE_WORDS`, `DUPLICATE_CHUNKS`).
 - `native`: BERTopic's own `topics_per_class` and `topics_over_time` views.
 
 Outputs (under `outputs/11_visualizations/`):
@@ -337,15 +336,14 @@ Outputs (under `outputs/11_visualizations/`):
 </details>
 
 <details>
-<summary><strong>Step 13 — Sentiment on shared topics (Brian's individual contribution)</strong></summary>
+<summary><strong>Step 13 — Sentiment on shared topics</strong></summary>
 
 ```bash
 python scripts/12_sentiment.py
-# Force re-scoring (slow):
-python scripts/12_sentiment.py --force-rescore
+python scripts/12_sentiment.py --force-rescore   # ignore the cache
 ```
 
-Each chunk gets scored by `cmarkea/distilcamembert-base-sentiment` (5-star → continuous score in [-1, 1] via expected rating). For every "shared" topic — at least 3 families with ≥10 chunks each — we report the range and std of family-mean sentiment, plus extracts of the most positive / most negative chunks per polarised topic. Scores are cached in `chunks_with_sentiment.csv`; subsequent runs skip the (slow) classifier pass unless `--force-rescore` is passed.
+Each chunk gets scored by `cmarkea/distilcamembert-base-sentiment`, with the 5-star output mapped to a continuous score in [-1, 1] via the expected rating. For every "shared" topic — at least 3 families with ≥10 chunks each — we report the range and std of family-mean sentiment, plus extracts of the most positive / most negative chunks per polarised topic. Scores are cached in `chunks_with_sentiment.csv`; subsequent runs skip the classifier pass unless `--force-rescore` is passed.
 
 Outputs (under `outputs/12_sentiment/`):
 - `chunks_with_sentiment.csv` (cache)
@@ -358,26 +356,11 @@ Outputs (under `outputs/12_sentiment/`):
 
 ---
 
-## Headline numbers
-
-Corpus: 21,156 documents, 118,383 chunks, 5 elections (1973–1993), 7 political families consolidated from 1,800+ raw labels.
-
-| Question | Metric | Value |
-|---|---|---|
-| Are the induced topics substantively meaningful? | LDA `c_v` (K=10), reading-cross-checked with BERTopic | 0.55 |
-| Do thematic profiles cluster by family? | Purity at k=7 in the chunk-level embedding space (chance = 0.14) | 0.54 |
-| Are some families thematically more distinctive? | Cramér's V on the 7 × 29 family-by-topic contingency | 0.45 |
-| Same topic, same tone? | Max range of family-mean sentiment on shared substantive topics | 0.25 on [-1, 1] |
-
-The dominant pattern is an asymmetry between peripheral and mainstream families. Peripheral parties (FN, LO, écologistes, POE, PLN, PFN) each have at least one dedicated topic with a high lift; mainstream parties (PS, RPR, UDF) share a generic electoral register and concentrate in the HDBSCAN noise bucket (54% of chunks). The radical left is also the most critical voice on every shared topic — its mean sentiment is consistently 0.10+ below the corpus baseline (+0.63).
-
-Side finding: some peripheral parties (Lutte Ouvrière in particular, but also the FN and the écologistes) distribute the same campaign tract to all their candidates, who just sign at the bottom. The within-topic ratio of distinct candidates to distinct chunk texts goes up to ~4 for these parties, vs ~1 for the mainstream. We didn't expect to see organisational signatures in a topic model, but they show up as flagged duplicate-chunks in the sanity digest.
-
 ### Hardware and runtime
 
-Estimated runtime on Apple M-series with MPS acceleration (the configuration we used during development):
+Approximate runtime on Apple M-series with MPS acceleration:
 
-| Step | Approximate time |
+| Step | Time |
 |---|---|
 | 01 → 03 | ~5 min |
 | 04 (lemmatisation) | ~8 min |
@@ -385,5 +368,5 @@ Estimated runtime on Apple M-series with MPS acceleration (the configuration we 
 | 07 (BERTopic + reduce_topics) | ~25 min |
 | 08 (LDA, 10 passes) | ~8 min |
 | 09 → 11 | ~5 min |
-| 12 (sentiment, first run) | ~30 min (cached afterwards) |
-| **Total** (cold full run) | ~1h30 |
+| 12 (sentiment, first run) | ~30 min, cached afterwards |
+| Total (cold full run) | ~1h30 |

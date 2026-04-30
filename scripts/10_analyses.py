@@ -203,31 +203,86 @@ def run_clustering(args) -> None:
     top_df.to_csv(out_dir / "party_clustering_topic.csv", index=False, encoding="utf-8-sig")
     proj_top_df.to_csv(out_dir / "party_clustering_projection_topic.csv", index=False, encoding="utf-8-sig")
 
-    # Figures: 2D projection colored by party family (View A and View B)
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    from umap import UMAP as _UMAP_VIZ
 
-    for fam, sub in proj_emb_df.groupby("party_family"):
-        axes[0].scatter(sub["x"], sub["y"], label=fam,
-                        color=PARTY_COLORS.get(fam, "gray"),
-                        alpha=0.6, s=18, edgecolors="none")
-    axes[0].set_title(f"View A: embedding space\n"
-                      f"Purity={res_emb['purity']:.2f} ARI={res_emb['ari']:.2f} NMI={res_emb['nmi']:.2f}")
-    axes[0].set_xlabel("Comp 1"); axes[0].set_ylabel("Comp 2")
-    axes[0].grid(alpha=0.3)
+    chunks_with_topic_path = OUTPUTS / "07_bertopic" / "chunks_with_topics.csv"
+    chunks_topic_df = pd.read_csv(chunks_with_topic_path, usecols=["doc_id", "topic"])
+    chunks_topic_df["doc_id"] = chunks_topic_df["doc_id"].astype(str)
+    chunk_in_seven = (
+        chunks_topic_df["doc_id"].isin(set(emb_df[DOC_ID_COL]))
+        & (chunks_topic_df["topic"] != -1)
+    )
+    chunk_idx = np.where(chunk_in_seven.values)[0]
+    chunk_emb = embeddings[chunk_idx]
+    chunk_meta = chunks_topic_df.iloc[chunk_idx].reset_index(drop=True)
+    chunk_meta = chunk_meta.merge(
+        doc_topic[[DOC_ID_COL, "party_family"]], on=DOC_ID_COL, how="left"
+    )
 
-    for fam, sub in proj_top_df.groupby("party_family"):
-        axes[1].scatter(sub["x"], sub["y"], label=fam,
-                        color=PARTY_COLORS.get(fam, "gray"),
-                        alpha=0.6, s=18, edgecolors="none")
-    axes[1].set_title(f"View B: topic distribution space\n"
-                      f"Purity={res_top['purity']:.2f} ARI={res_top['ari']:.2f} NMI={res_top['nmi']:.2f}")
-    axes[1].set_xlabel("Comp 1"); axes[1].set_ylabel("Comp 2")
-    axes[1].grid(alpha=0.3)
+    print(f"[clustering] Running UMAP on {len(chunk_emb)} chunks for visualisation...")
+    chunk_xy = _UMAP_VIZ(
+        n_components=2, n_neighbors=30, min_dist=0.3,
+        metric="cosine", random_state=args.random_state,
+    ).fit_transform(chunk_emb)
+    chunk_meta["x"] = chunk_xy[:, 0]
+    chunk_meta["y"] = chunk_xy[:, 1]
 
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=min(7, len(handles)),
-               fontsize=9, bbox_to_anchor=(0.5, -0.04))
-    plt.suptitle(f"Party clustering ({args.method.upper()}, k={n_clusters})", y=1.02)
+    panels = [
+        ("Peripheries", ["national_right", "ecologist", "radical_left"]),
+        ("Mainstream",  ["socialist_left", "gaullist_right", "liberal_center_right"]),
+        ("FN vs écologistes", ["national_right", "ecologist"]),
+    ]
+
+    xlim = (np.percentile(chunk_meta["x"], 2),  np.percentile(chunk_meta["x"], 98))
+    ylim = (np.percentile(chunk_meta["y"], 2),  np.percentile(chunk_meta["y"], 98))
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6.5), sharex=True, sharey=True)
+
+    panel_cx = (xlim[0] + xlim[1]) / 2
+    panel_cy = (ylim[0] + ylim[1]) / 2
+    panel_radius = 0.5 * max(xlim[1] - xlim[0], ylim[1] - ylim[0])
+
+    for ax, (title, focus_fams) in zip(axes, panels):
+        bg = chunk_meta[~chunk_meta["party_family"].isin(focus_fams)]
+        ax.scatter(bg["x"], bg["y"], s=3, alpha=0.15,
+                   color="#cccccc", edgecolors="none", rasterized=True)
+
+        annotations = []
+        for k, fam in enumerate(focus_fams):
+            sub = chunk_meta[chunk_meta["party_family"] == fam]
+            ax.scatter(sub["x"], sub["y"], s=6, alpha=0.6,
+                       color=PARTY_COLORS.get(fam, "tab:blue"),
+                       label=f"{fam} (n={len(sub)})",
+                       edgecolors="none", rasterized=True)
+            cx, cy = sub["x"].median(), sub["y"].median()
+            dx, dy = cx - panel_cx, cy - panel_cy
+            norm = (dx ** 2 + dy ** 2) ** 0.5
+            if norm < 0.1:
+                angle = (2 * np.pi * k) / max(1, len(focus_fams)) + np.pi / 4
+                dx, dy = np.cos(angle), np.sin(angle)
+            else:
+                dx, dy = dx / norm, dy / norm
+            label_x = cx + dx * panel_radius * 0.55
+            label_y = cy + dy * panel_radius * 0.55
+            annotations.append((fam, cx, cy, label_x, label_y))
+
+        for fam, cx, cy, lx, ly in annotations:
+            color = PARTY_COLORS.get(fam, "gray")
+            ax.annotate(
+                fam,
+                xy=(cx, cy), xytext=(lx, ly),
+                ha="center", va="center",
+                fontsize=11, fontweight="bold", color="white",
+                bbox=dict(boxstyle="round,pad=0.3", facecolor=color,
+                          edgecolor="black", linewidth=0.6, alpha=0.95),
+                arrowprops=dict(arrowstyle="-", color=color, linewidth=1.2,
+                                shrinkA=4, shrinkB=4, alpha=0.85),
+            )
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        ax.set_xlim(xlim); ax.set_ylim(ylim)
+        ax.set_xticks([]); ax.set_yticks([])
+        ax.legend(loc="lower left", fontsize=10, frameon=True, markerscale=2.5)
+
     plt.tight_layout()
     plt.savefig(out_figs / "party_projection.png", dpi=150, bbox_inches="tight")
     plt.close()
@@ -346,8 +401,6 @@ def run_specialisation(args) -> None:
         f.write("\n(0.1 = small, 0.3 = medium, 0.5 = large effect)\n")
 
     pivot = lift_long.pivot(index="party_family", columns="topic_id", values="log_lift").fillna(0.0)
-    # Clip extreme negatives ("family never uses topic" → log(lift) ≈ -20) so the
-    # colormap is dominated by the substantive signal. Cap at ±3 (lift ∈ [0.05, 20]).
     pivot_display = pivot.clip(lower=-3.0, upper=3.0)
     xtick_labels = [topic_display_name(int(t), human_labels, max_len=35) for t in pivot.columns]
     plt.figure(figsize=(max(16, 0.7 * pivot.shape[1]), max(8, 1.0 * pivot.shape[0])))
