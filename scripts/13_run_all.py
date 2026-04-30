@@ -30,7 +30,7 @@ STEPS = [
     (4,  "04_eda.py",                  [],                "EDA on text_clean: top words + keyword trends", 1),
     (5,  "05_chunking_eval.py",        [],                "Compare chunking methods (eval only)", 1),
     (6,  "06_chunking_embedding.py",   [],                "Chunk + embed (MiniLM, MPS/CUDA)", 8),
-    (7,  "07_bertopic.py",             [],                "BERTopic + reduce_outliers + reduce_topics(20)", 25),
+    (7,  "07_bertopic.py",             [],                "BERTopic + reduce_topics(30) (noise -1 kept)", 25),
     (8,  "08_lda.py",                  [],                "LDA (10 topics)", 8),
     (9,  "09_doc_topic_vectors.py",    [],                "Aggregate to doc level + party_family", 1),
     (10, "10_analyses.py",             ["--all"],         "Clustering + specialisation analyses", 2),

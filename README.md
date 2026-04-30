@@ -4,47 +4,25 @@
 - Brian Ramesh
 - Clément Destouesse
 
----
+Most commits are on Brian's account because the topic-modelling fits had to run on his machine (the only one with enough RAM/GPU for the embeddings and BERTopic). The two of us contributed equally to the design and code.
 
-## Project Overview
-
-Electoral manifestos provide a structured and comparable form of political communication, making them well-suited for computational analysis. This repository contains an end-to-end NLP pipeline that applies modern topic modeling techniques to the **Archelec corpus** of French legislative *professions de foi* between 1973 and 1993, with the goal of mapping political parties and candidates in a shared semantic space inferred from text alone.
-
-The project covers the full pipeline from raw OCR text and metadata to candidate-level thematic profiles, hypothesis tests on inter-party clustering and specialisation, and a sentiment analysis on shared topics.
-
-This project was conducted as part of the ENSAE course **Natural Language Processing (2025–2026)**, given by C. Kermorvant. The full project report can be found in the `report/` folder.
 
 ---
 
-## References
+## What this project does
 
-This project follows the BERTopic methodology introduced by Grootendorst (2022), with additional comparative analyses against an LDA baseline and complementary sentiment scoring.
+We apply topic modeling to the **Archelec corpus** of French legislative *professions de foi* from 1973 to 1993 (~21k documents) and ask whether political families of that period can be cartographed in a semantic space inferred from text alone. The pipeline goes from raw OCR text + metadata to candidate-level thematic profiles, then runs three downstream analyses: clustering by political family, thematic specialisation, and sentiment divergence on shared topics. The full report is in `report/`.
 
-> Grootendorst, M. (2022). *BERTopic: Neural topic modeling with a class-based TF-IDF procedure.* arXiv:2203.05794
->
-> Blei, D., Ng, A., & Jordan, M. (2003). *Latent Dirichlet Allocation.* Journal of Machine Learning Research, 3, 993–1022.
+ENSAE NLP course (2025–2026), C. Kermorvant.
 
----
+## Main references
 
-## Code Provenance and Originality
+Grootendorst, M. (2022). *BERTopic: Neural topic modeling with a class-based TF-IDF procedure.* arXiv:2203.05794.
+Blei, D., Ng, A., & Jordan, M. (2003). *Latent Dirichlet Allocation.* JMLR 3, 993–1022.
 
-This project is primarily original code written for research and experimentation. The data joining, OCR quality assessment, two-track preprocessing pipeline, chunking strategy, hypothesis test suite, validation digest, sentiment scoring projection, and orchestration scripts were implemented specifically for this repository. Standard open-source libraries are used as-is for the heavy lifting:
+## Repository
 
-- `bertopic` for the embedding-based topic model
-- `sentence-transformers` (model `paraphrase-multilingual-MiniLM-L12-v2`) for chunk embeddings
-- `umap-learn` and `hdbscan` for dimensionality reduction and clustering
-- `gensim` for the LDA baseline and coherence scoring
-- `transformers` (model `cmarkea/distilcamembert-base-sentiment`) for chunk-level sentiment scoring
-- `spacy` (model `fr_core_news_sm`) for lemmatisation
-- `scikit-learn` for KMeans, PCA, t-SNE, and the clustering metrics
-- `scipy` for the chi-square independence test
-- `pandas`, `numpy`, `matplotlib`, `plotly`, `kaleido` for data handling and figures
-
----
-
-## Repository Structure
-
-### Global overview
+### Top-level layout
 
 ```text
 Topic_modeling_nlp/
@@ -108,13 +86,13 @@ Each pipeline step writes to its own folder following the convention `outputs/NN
 ├── 04_eda.py                       # Top words by year/party/family + keyword trends (on text_clean)
 ├── 05_chunking_eval.py             # Compare chunking strategies (fixed/sentence/paragraph)
 ├── 06_chunking_embedding.py        # Chunk text_clean + compute MiniLM embeddings
-├── 07_bertopic.py                  # BERTopic + reduce_outliers + reduce_topics(20)
-├── 08_lda.py                       # LDA baseline (10 topics)
+├── 07_bertopic.py                  # BERTopic + reduce_topics(30) (HDBSCAN noise -1 kept)
+├── 08_lda.py                       # LDA baseline (10 topics, c_v sweep on K)
 ├── 09_doc_topic_vectors.py         # Aggregate to doc level + party family mapping
 ├── 10_analyses.py                  # Inter-family clustering and thematic specialisation
 ├── 11_visualizations.py            # 2D projection, topic sanity digest, BERTopic native views
 ├── 12_sentiment.py                 # Sentiment on shared topics
-└── 13_run_all.py                   # Orchestrator: run all 12 steps end-to-end
+└── 13_run_all.py                   # Orchestrator: runs steps 1 to 12 in order
 ```
 
 The orchestrator script `13_run_all.py` exposes flags `--from`, `--to`, `--skip`, `--continue-on-error`, and `--dry-run` for partial re-runs.
@@ -123,33 +101,22 @@ The orchestrator script `13_run_all.py` exposes flags `--from`, `--to`, `--skip`
 
 ---
 
-## Global Summary to Reproduce All Results
+## Reproducing the results
 
-To reproduce all results in one go (assuming the environment is set up and the raw data is in `data/`):
-
-```bash
-# Run the full pipeline (12 steps, ~1h30 on M-series with MPS)
-python scripts/13_run_all.py
-```
-
-Or partially:
+Once the environment is set up (Step 1 below) and `data/archelect_search.csv` + the year folders are in place:
 
 ```bash
-# Skip the heavy BERTopic re-fit (uses cached topic model)
-python scripts/13_run_all.py --skip 7
-
-# Resume from a given step
-python scripts/13_run_all.py --from 9
-
-# Dry-run (print plan without executing)
-python scripts/13_run_all.py --dry-run
+python scripts/13_run_all.py            # full run, ~1h30 on M-series with MPS
+python scripts/13_run_all.py --skip 7   # skip BERTopic refit (use cached model)
+python scripts/13_run_all.py --from 9   # resume from step 9
+python scripts/13_run_all.py --dry-run  # print plan only
 ```
 
-The orchestrator stops at the first failing step by default; use `--continue-on-error` to push through.
+Pipeline stops at the first failing step. Add `--continue-on-error` to push through.
 
 ---
 
-## Usage step by step to reproduce results
+## Step-by-step
 
 <details>
 <summary><strong>Step 1 — Install dependencies</strong></summary>
@@ -177,11 +144,7 @@ Main dependencies (declared in `pyproject.toml`):
 python scripts/01_data_load.py
 ```
 
-This step:
-- Loads `data/archelect_search.csv`
-- Filters to legislative elections of 1973, 1978, 1981, 1988, 1993
-- Indexes all `.txt` files under `data/<year>/` and joins by document identifier
-- Computes descriptive statistics
+Loads the metadata CSV, filters to the five legislative elections, indexes the year-by-year `.txt` files and joins them on the document id. Writes a few descriptive plots.
 
 Outputs:
 - `outputs/01_data_load/corpus_joined.csv`
@@ -196,7 +159,7 @@ Outputs:
 python scripts/02_data_quality.py
 ```
 
-Per-document OCR quality score (combining the share of recognisable French words and the share of short tokens), filtering of degraded documents, lexical diagnostics.
+Computes a per-document OCR quality score (share of recognisable French words minus share of length-≤2 tokens), drops the most degraded documents, and saves a few diagnostic plots on the raw vocabulary.
 
 Outputs:
 - `outputs/02_data_quality/corpus_cleaned.csv`
@@ -211,12 +174,12 @@ Outputs:
 python scripts/03_preprocessing.py
 ```
 
-Produces two parallel versions of each document:
+Builds two versions of each document:
 
-- `text_clean`: light cleaning (recurrent OCR artefacts, generic electoral phrases, normalisation). Used as input to the sentence transformer.
-- `text_preprocessed`: lemmatised via spaCy + custom stopword removal. Used by LDA and the c-TF-IDF representation of BERTopic.
+- `text_clean` — light cleaning only (OCR artefact removal, generic phrase removal, normalisation). Goes to the sentence transformer.
+- `text_preprocessed` — lemmatised (spaCy `fr_core_news_sm`) then stopword-pruned with our custom 700-word list. Goes to LDA and to the c-TF-IDF of BERTopic.
 
-The order **lemmatise → stopwords** is essential to match inflected forms.
+The order matters: **lemmatise first, then remove stopwords**, otherwise inflected variants slip through.
 
 Outputs:
 - `outputs/03_preprocessing/corpus_preprocessed.csv`
@@ -231,7 +194,7 @@ Outputs:
 python scripts/04_eda.py
 ```
 
-Top words by year, by raw party, and by political family, plus keyword trend tracking on a shortlist of political terms. Runs on the `text_clean` column of `corpus_preprocessed.csv` (after step 3) so the OCR boilerplate and generic campaign phrases are already stripped.
+Top words by year, by raw party label, and by consolidated family. Also tracks a shortlist of political keywords (`travail`, `emploi`, `immigration`, `securite`, `europe`...) across years and families. Runs on `text_clean` (post-cleaning), not on the raw text, so the OCR boilerplate and generic campaign phrases are already gone.
 
 Outputs:
 - `outputs/04_eda/eda_top_words_by_year.csv`, `eda_top_words_by_party.csv`, `eda_top_words_by_family.csv`
@@ -246,7 +209,7 @@ Outputs:
 python scripts/05_chunking_eval.py
 ```
 
-Compares fixed-length, sentence, and paragraph chunking on a sample of 200 documents. Reports topic coherence (c_v) and topic diversity for each strategy. Justifies the choice of fixed-length 150 / overlap 30 / min 40 used in step 7.
+One-shot comparison of three chunking strategies (fixed length, sentence, paragraph) on a sample of 200 documents, scored by `c_v` coherence and topic diversity. Used to justify the fixed-length 150/overlap 30/min 40 picked up by step 7.
 
 Outputs:
 - `outputs/05_chunking_eval/chunking_methods_eval.csv`
@@ -261,7 +224,7 @@ Outputs:
 python scripts/06_chunking_embedding.py
 ```
 
-Splits each document into overlapping chunks of 150 words (overlap 30, minimum 40) on `text_clean`, then encodes each chunk with `paraphrase-multilingual-MiniLM-L12-v2` on MPS / CUDA / CPU.
+Splits `text_clean` into overlapping windows of 150 words (overlap 30, min size 40) and embeds each chunk with `paraphrase-multilingual-MiniLM-L12-v2`. The script auto-detects MPS / CUDA / CPU.
 
 Outputs:
 - `outputs/06_chunking_embedding/corpus_chunks.csv`
@@ -277,16 +240,21 @@ Outputs:
 python scripts/07_bertopic.py
 ```
 
-Pipeline:
-- UMAP (`n_neighbors=30`, `n_components=5`, cosine, `random_state=42`)
-- HDBSCAN (`min_cluster_size=60`, `eom`)
-- CountVectorizer with French stopwords, `min_df=2`, `max_df=0.5`, `ngram_range=(1, 2)`
-- `reduce_outliers(strategy="embeddings")` + `update_topics`
-- `reduce_topics(nr_topics=30)`
+Configuration:
+
+- UMAP: `n_neighbors=30`, `n_components=5`, cosine, `random_state=42`
+- HDBSCAN: `min_cluster_size=60`, `eom`
+- CountVectorizer: French stopwords list, `min_df=2`, `max_df=0.5`, `ngram_range=(1, 2)`
+- `reduce_topics(nr_topics=30)` — but `reduce_outliers` is **off**. The HDBSCAN noise label `-1` is kept as a "no thematic cluster" bucket (~54% of chunks). Step 9 drops these chunks before family-level aggregation.
+
+Why this config: we tested the four combinations of `K ∈ {20, 30}` and `reduce_outliers ∈ {on, off}`. With `reduce_outliers=on`, 40–90% of chunks pile into a single mixed-family cluster; the cartography becomes unusable. Without it, K=30 keeps a dedicated topic for each major peripheral family (FN, PCF, LO, écologistes) plus three small ones (POE, PLN, PFN). K=20 fuses PCF and LO into one cluster, which we don't want. Details in `report/documents/p5_implementation.tex`.
+
+After the fit, topics are labelled by hand in `ntbks/topic_labelling.ipynb` (top words + 5 chunks from 5 distinct docs, then a label and family hint go into `outputs/07_bertopic/topic_labels.csv`).
 
 Outputs:
 - `outputs/07_bertopic/chunks_with_topics.csv`
 - `outputs/07_bertopic/topic_info.csv`
+- `outputs/07_bertopic/topic_labels.csv` (manual labels, one per topic)
 - `outputs/07_bertopic/models/bertopic_model/`
 - `outputs/07_bertopic/reports/topic_modeling_info.txt`
 - `outputs/07_bertopic/figures/topic_barchart.png`, `topic_heatmap.png`, `topic_hierarchy.png`, `topic_documents.png`, `topic_sizes.png`
@@ -296,10 +264,11 @@ Outputs:
 <summary><strong>Step 9 — LDA baseline</strong></summary>
 
 ```bash
-python scripts/08_lda.py
+python scripts/08_lda.py            # main fit, K=10
+python scripts/08_lda.py --eval-k   # coherence sweep on K ∈ {5, 10, 15, 20, 30}
 ```
 
-20 topics, 10 passes, 100 iterations on the lemmatised version of the corpus. Coherence score c_v computed on the top 15 words per topic.
+LDA on the lemmatised corpus, 10 topics, 10 passes, 100 iterations, asymmetric priors. K=10 is picked from a coherence sweep over `K ∈ {5, 10, 15, 20, 30}` on 80k chunks, with four metrics (`u_mass`, `c_v`, `c_uci`, `c_npmi`); three out of four peak at K=10. Final `c_v` = 0.55 on top-15 words.
 
 Outputs:
 - `outputs/08_lda/chunks_with_topics_lda.csv`
@@ -316,7 +285,7 @@ Outputs:
 python scripts/09_doc_topic_vectors.py
 ```
 
-Aggregates chunk-level topic assignments into document-level topic profiles. Maps the 1,800+ raw party labels to seven political families (`national_right`, `radical_left`, `communist_left`, `socialist_left`, `ecologist`, `gaullist_right`, `liberal_center_right`) via an ordered rule-based system, plus `unclassified` and `other` for residual cases.
+Aggregates the chunk-level topic assignments back to the document level (probability vector over topics per doc), and maps the 1,800+ raw `titulaire-soutien` / `titulaire-liste` values to seven political families (`national_right`, `radical_left`, `communist_left`, `socialist_left`, `ecologist`, `gaullist_right`, `liberal_center_right`) plus the residuals `unclassified` and `other`. The ordered rule set is in `scripts/_family_mapping.py`.
 
 Outputs:
 - `outputs/09_doc_topic_vectors/doc_topic_vectors_bertopic.csv`
@@ -336,10 +305,8 @@ python scripts/10_analyses.py --analysis clustering
 python scripts/10_analyses.py --analysis specialisation
 ```
 
-Computes:
-
-- **Clustering**: KMeans with k=7 in two representations (mean embedding, topic distribution) and metrics Purity, ARI, NMI, Silhouette.
-- **Specialisation**: Lift, chi-square test, Cramér's V on the family × topic contingency table; top-3 specialised topics per family.
+- **Clustering**: KMeans (k=7) on documents in two spaces — the mean-embedding profile and the topic-distribution profile — scored by Purity, ARI, NMI, Silhouette.
+- **Specialisation**: lift, Pearson χ², Cramér's V on the family × topic contingency table, plus the top-3 specialised topics per family.
 
 Outputs (under `outputs/10_analyses/`):
 - `clustering/party_clustering_*.csv`, `figures/clustering/party_projection.png`, `reports/clustering/party_clustering_info.txt`
@@ -357,11 +324,11 @@ python scripts/11_visualizations.py --viz sanity
 python scripts/11_visualizations.py --viz native
 ```
 
-Three independent visualisation routines:
+Three independent routines:
 
-- `projection`: 2D PCA / t-SNE of document topic profiles, faceted by year, coloured by political family.
-- `sanity`: digest of BERTopic topics with top c-TF-IDF terms, three representative chunks per topic, and automated heuristic flags (`GENERIC_BOILERPLATE`, `REPETITIVE_WORDS`, `DUPLICATE_CHUNKS`) used to validate topic coherence in our unsupervised setting.
-- `native`: BERTopic native descriptive views `topics_per_class` and `topics_over_time`.
+- `projection`: 2D PCA / t-SNE of doc topic profiles, faceted by year, coloured by family.
+- `sanity`: per-topic digest with top c-TF-IDF terms, three representative chunks, and three heuristic flags (`GENERIC_BOILERPLATE`, `REPETITIVE_WORDS`, `DUPLICATE_CHUNKS`). The `DUPLICATE_CHUNKS` flag is what surfaced the centrally-distributed-templates side finding.
+- `native`: BERTopic's own `topics_per_class` and `topics_over_time` views.
 
 Outputs (under `outputs/11_visualizations/`):
 - `projection/doc_topic_projection.csv`, `projection/figures/doc_projection*.png`
@@ -378,7 +345,7 @@ python scripts/12_sentiment.py
 python scripts/12_sentiment.py --force-rescore
 ```
 
-Each chunk is scored with `cmarkea/distilcamembert-base-sentiment` and projected to a continuous score in [-1, 1] via the expected rating. Topics shared by at least three families with at least ten chunks each are kept; for each shared topic, the range and standard deviation of the family-mean sentiment are reported. Qualitative extracts (most positive vs most negative chunks) are saved for the most polarised topics. Sentiment scores are cached in `chunks_with_sentiment.csv` so subsequent runs do not re-score.
+Each chunk gets scored by `cmarkea/distilcamembert-base-sentiment` (5-star → continuous score in [-1, 1] via expected rating). For every "shared" topic — at least 3 families with ≥10 chunks each — we report the range and std of family-mean sentiment, plus extracts of the most positive / most negative chunks per polarised topic. Scores are cached in `chunks_with_sentiment.csv`; subsequent runs skip the (slow) classifier pass unless `--force-rescore` is passed.
 
 Outputs (under `outputs/12_sentiment/`):
 - `chunks_with_sentiment.csv` (cache)
@@ -391,9 +358,20 @@ Outputs (under `outputs/12_sentiment/`):
 
 ---
 
-## Current Results
+## Headline numbers
 
-put result
+Corpus: 21,156 documents, 118,383 chunks, 5 elections (1973–1993), 7 political families consolidated from 1,800+ raw labels.
+
+| Question | Metric | Value |
+|---|---|---|
+| Are the induced topics substantively meaningful? | LDA `c_v` (K=10), reading-cross-checked with BERTopic | 0.55 |
+| Do thematic profiles cluster by family? | Purity at k=7 in the chunk-level embedding space (chance = 0.14) | 0.54 |
+| Are some families thematically more distinctive? | Cramér's V on the 7 × 29 family-by-topic contingency | 0.45 |
+| Same topic, same tone? | Max range of family-mean sentiment on shared substantive topics | 0.25 on [-1, 1] |
+
+The dominant pattern is an asymmetry between peripheral and mainstream families. Peripheral parties (FN, LO, écologistes, POE, PLN, PFN) each have at least one dedicated topic with a high lift; mainstream parties (PS, RPR, UDF) share a generic electoral register and concentrate in the HDBSCAN noise bucket (54% of chunks). The radical left is also the most critical voice on every shared topic — its mean sentiment is consistently 0.10+ below the corpus baseline (+0.63).
+
+Side finding: some peripheral parties (Lutte Ouvrière in particular, but also the FN and the écologistes) distribute the same campaign tract to all their candidates, who just sign at the bottom. The within-topic ratio of distinct candidates to distinct chunk texts goes up to ~4 for these parties, vs ~1 for the mainstream. We didn't expect to see organisational signatures in a topic model, but they show up as flagged duplicate-chunks in the sanity digest.
 
 ### Hardware and runtime
 
@@ -404,7 +382,7 @@ Estimated runtime on Apple M-series with MPS acceleration (the configuration we 
 | 01 → 03 | ~5 min |
 | 04 (lemmatisation) | ~8 min |
 | 06 (embedding ~118k chunks) | ~8 min |
-| 07 (BERTopic + reduce_outliers + reduce_topics) | ~25 min |
+| 07 (BERTopic + reduce_topics) | ~25 min |
 | 08 (LDA, 10 passes) | ~8 min |
 | 09 → 11 | ~5 min |
 | 12 (sentiment, first run) | ~30 min (cached afterwards) |

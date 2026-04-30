@@ -346,16 +346,20 @@ def run_specialisation(args) -> None:
         f.write("\n(0.1 = small, 0.3 = medium, 0.5 = large effect)\n")
 
     pivot = lift_long.pivot(index="party_family", columns="topic_id", values="log_lift").fillna(0.0)
+    # Clip extreme negatives ("family never uses topic" → log(lift) ≈ -20) so the
+    # colormap is dominated by the substantive signal. Cap at ±3 (lift ∈ [0.05, 20]).
+    pivot_display = pivot.clip(lower=-3.0, upper=3.0)
     xtick_labels = [topic_display_name(int(t), human_labels, max_len=35) for t in pivot.columns]
-    plt.figure(figsize=(max(10, 0.45 * pivot.shape[1]), max(4, 0.6 * pivot.shape[0])))
-    vmax = max(abs(pivot.values.min()), abs(pivot.values.max()), 1.0)
-    plt.imshow(pivot.values, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
-    plt.colorbar(label="log(lift) — positive = over-representation")
-    plt.xticks(np.arange(pivot.shape[1]), xtick_labels, rotation=60, ha="right", fontsize=8)
-    plt.yticks(np.arange(pivot.shape[0]), pivot.index)
-    plt.title("Topic specialisation by party (log-lift)")
+    plt.figure(figsize=(max(16, 0.7 * pivot.shape[1]), max(8, 1.0 * pivot.shape[0])))
+    plt.imshow(pivot_display.values, aspect="auto", cmap="RdBu_r", vmin=-3, vmax=3)
+    cbar = plt.colorbar(label="log(lift) — positive = over-representation (clipped at ±3)")
+    cbar.ax.tick_params(labelsize=12)
+    cbar.set_label("log(lift) — positive = over-representation (clipped at ±3)", fontsize=13)
+    plt.xticks(np.arange(pivot.shape[1]), xtick_labels, rotation=60, ha="right", fontsize=13)
+    plt.yticks(np.arange(pivot.shape[0]), pivot.index, fontsize=14)
+    plt.title("Topic specialisation by party (log-lift)", fontsize=16)
     plt.tight_layout()
-    plt.savefig(out_figs / "topic_specialization_heatmap.png", dpi=150)
+    plt.savefig(out_figs / "topic_specialization_heatmap.png", dpi=150, bbox_inches="tight")
     plt.close()
 
     with open(out_reports / "topic_specialization_info.txt", "w", encoding="utf-8") as f:

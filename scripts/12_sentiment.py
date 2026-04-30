@@ -349,60 +349,112 @@ def main() -> None:
 
     print(f"Saved qualitative extracts: {EXTRACTS_PATH}")
 
+    BOILERPLATE_TOPICS = {5, 15}
+
     if not grouped.empty:
-        eligible_topics = (
-            grouped.groupby(TOPIC_COL)["party_family"].nunique()
-            .loc[lambda s: s >= args.min_parties]
-            .sort_values(ascending=False)
-            .head(40)
-            .index
-        )
+        from matplotlib.colors import TwoSlopeNorm
+
+        topic_range = grouped.groupby(TOPIC_COL)["mean_sentiment"].agg(lambda s: s.max() - s.min())
+        topic_nfam  = grouped.groupby(TOPIC_COL)["party_family"].nunique()
+        eligible_topics = topic_range.index[
+            (topic_nfam >= 5) & (topic_range >= 0.18)
+            & (~topic_range.index.isin(BOILERPLATE_TOPICS))
+        ]
+        eligible_topics = sorted(eligible_topics, key=lambda t: -topic_range[t])
         sub = grouped[grouped[TOPIC_COL].isin(eligible_topics)]
         if not sub.empty:
             pivot = sub.pivot(index="party_family", columns=TOPIC_COL, values="mean_sentiment")
-            pivot = pivot.loc[:, sorted(pivot.columns)]
+            pivot = pivot.loc[:, eligible_topics]
+
+            corpus_mean = float(chunks["sentiment"].mean())
+            vmin = min(float(np.nanmin(pivot.values)), corpus_mean - 0.05)
+            vmax = max(float(np.nanmax(pivot.values)), corpus_mean + 0.05)
+            norm = TwoSlopeNorm(vcenter=corpus_mean, vmin=vmin, vmax=vmax)
 
             xtick_labels = [topic_display_name(int(t), human_labels, max_len=35) for t in pivot.columns]
-            fig, ax = plt.subplots(figsize=(max(10, 0.5 * pivot.shape[1]), max(4, 0.55 * pivot.shape[0])))
-            vmax = max(0.3, np.nanmax(np.abs(pivot.values)))
-            im = ax.imshow(pivot.values, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+            fig, ax = plt.subplots(figsize=(max(14, 0.6 * pivot.shape[1]), max(6, 0.85 * pivot.shape[0])))
+            im = ax.imshow(pivot.values, aspect="auto", cmap="RdYlGn", norm=norm)
             ax.set_xticks(np.arange(pivot.shape[1]))
-            ax.set_xticklabels(xtick_labels, rotation=60, ha="right", fontsize=7)
+            ax.set_xticklabels(xtick_labels, rotation=60, ha="right", fontsize=11)
             ax.set_yticks(np.arange(pivot.shape[0]))
-            ax.set_yticklabels(pivot.index)
-            ax.set_xlabel("Topic")
-            ax.set_title("Mean sentiment by party_family x topic (shared topics only)")
-            plt.colorbar(im, ax=ax, label="Mean sentiment (-1 = neg, +1 = pos)")
+            ax.set_yticklabels(pivot.index, fontsize=12)
+            ax.set_xlabel("Topic", fontsize=12)
+            ax.set_title(
+                f"Mean sentiment by party_family × topic\n"
+                f"(centered on corpus mean = {corpus_mean:+.2f}; "
+                f"green = relatively positive, red = relatively critical)",
+                fontsize=13,
+            )
+            cbar = plt.colorbar(im, ax=ax)
+            cbar.set_label("Mean sentiment", fontsize=12)
+            cbar.ax.tick_params(labelsize=10)
             plt.tight_layout()
-            plt.savefig(HEATMAP_PATH, dpi=150)
+            plt.savefig(HEATMAP_PATH, dpi=150, bbox_inches="tight")
             plt.close()
             print(f"Saved heatmap: {HEATMAP_PATH}")
 
-    if not top_polarized.empty:
-        fig, axes = plt.subplots(
-            len(top_polarized), 1,
-            figsize=(10, 1.6 * len(top_polarized)),
-            squeeze=False,
+    grouped_strong = grouped[grouped["n_chunks"] >= 10]
+    box_candidates = (
+        grouped_strong[~grouped_strong[TOPIC_COL].isin(BOILERPLATE_TOPICS)]
+        .groupby(TOPIC_COL)
+        .agg(
+            n_parties=("party_family", "nunique"),
+            n_chunks_total=("n_chunks", "sum"),
+            min_mean=("mean_sentiment", "min"),
+            max_mean=("mean_sentiment", "max"),
         )
+        .reset_index()
+    )
+    box_candidates["range"] = box_candidates["max_mean"] - box_candidates["min_mean"]
+    box_candidates = (
+        box_candidates[(box_candidates["n_parties"] >= 5) & (box_candidates["range"] >= 0.18)]
+        .sort_values("range", ascending=False)
+        .head(3)
+    )
 
-        for ax_row, (_, r) in zip(axes, top_polarized.iterrows()):
+    if not box_candidates.empty:
+        corpus_mean = float(chunks["sentiment"].mean())
+        n_topics = len(box_candidates)
+        fig, axes = plt.subplots(n_topics, 1, figsize=(13, 3.2 * n_topics), squeeze=False)
+
+        for ax_row, (_, r) in zip(axes, box_candidates.iterrows()):
             ax = ax_row[0]
-            tid = int(r["topic"])
-            sub = chunks[chunks[TOPIC_COL] == tid]
-            parties = sub["party_family"].unique()
-            data = [sub.loc[sub["party_family"] == p, "sentiment"].values for p in parties]
+            tid = int(r[TOPIC_COL])
+            label = topic_labels.get(tid, f"Topic {tid}")
+            sub_chunks = chunks[chunks[TOPIC_COL] == tid]
 
-            ax.boxplot(data, labels=parties, vert=True, showfliers=False)
-            display = topic_display_name(tid, human_labels, max_len=70)
-            if display.startswith("Topic "):
-                display = short_label(r.get("topic_label") or display, 70)
-            ax.set_title(f"Topic {tid}: {display}  (range={r['range']:.2f})", fontsize=9)
-            ax.set_ylabel("sentiment")
-            ax.axhline(0, color="gray", linewidth=0.5, linestyle="--")
-            ax.tick_params(axis="x", labelsize=8, rotation=20)
+            family_counts = sub_chunks["party_family"].value_counts()
+            parties = family_counts[family_counts >= 10].index.tolist()
+            party_means = {
+                p: float(sub_chunks.loc[sub_chunks["party_family"] == p, "sentiment"].mean())
+                for p in parties
+            }
+            parties = sorted(parties, key=lambda p: party_means[p])
+            data = [
+                sub_chunks.loc[sub_chunks["party_family"] == p, "sentiment"].values
+                for p in parties
+            ]
+
+            ax.boxplot(data, labels=parties, vert=True, showfliers=False, patch_artist=True,
+                       boxprops=dict(facecolor="#a6c8ed", edgecolor="#234a78"),
+                       medianprops=dict(color="#c44e52", linewidth=2.0))
+            ax.set_title(
+                f"Topic {tid} — {label}  "
+                f"(range = {r['range']:.2f}, n = {int(r['n_chunks_total'])} chunks across "
+                f"{int(r['n_parties'])} families)",
+                fontsize=12, fontweight="bold",
+            )
+            ax.set_ylabel("Sentiment", fontsize=11)
+            ax.axhline(corpus_mean, color="gray", linewidth=0.8, linestyle="--",
+                       alpha=0.7, label=f"corpus mean = {corpus_mean:+.2f}")
+            ax.legend(loc="lower right", fontsize=9)
+            ax.tick_params(axis="x", labelsize=10, rotation=20)
+            ax.tick_params(axis="y", labelsize=10)
+            ax.grid(axis="y", alpha=0.3)
+            ax.set_ylim(-0.3, 1.05)
 
         plt.tight_layout()
-        plt.savefig(BOX_PATH, dpi=150)
+        plt.savefig(BOX_PATH, dpi=150, bbox_inches="tight")
         plt.close()
         print(f"Saved boxplots: {BOX_PATH}")
 

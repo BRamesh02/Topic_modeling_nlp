@@ -1,7 +1,9 @@
 """
 Step 7 — Fit BERTopic on the precomputed chunk embeddings. UMAP + HDBSCAN for
 the clustering, CountVectorizer (with the curated French stopword list) for the
-c-TF-IDF representation, then reduce_outliers + reduce_topics(20).
+c-TF-IDF representation, then reduce_topics(30). HDBSCAN noise (-1) is kept
+as-is rather than reassigned, so step 9 will drop it before family-level
+aggregation.
 """
 
 from pathlib import Path
@@ -60,7 +62,7 @@ RANDOM_STATE = 42
 VECT_MIN_DF = 2
 VECT_MAX_DF = 0.5
 NGRAM_RANGE = (1, 2)
-REDUCE_OUTLIERS = True
+REDUCE_OUTLIERS = False
 
 
 def load_stopwords(path: Path) -> list[str]:
@@ -154,8 +156,9 @@ def main():
             topics=topics,
             vectorizer_model=vectorizer_model,
         )
-        
-        topic_model.reduce_topics(docs, nr_topics=20)
+
+    topic_model.reduce_topics(docs, nr_topics=30)
+    topics = list(topic_model.topics_)
 
 
     df["topic"] = topics
