@@ -213,4 +213,8 @@ __marimo__/
 *.csv
 #*.txt
 
-data/
+data/outputs/06_chunking_embedding/chunk_embeddings.npy
+
+/data.DS_Store
+outputs/06_chunking_embedding/chunk_embeddings.npy
+outputs/07_bertopic/models/

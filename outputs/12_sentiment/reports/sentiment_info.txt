@@ -1,0 +1,34 @@
+=== Sentiment by party_family x topic ===
+
+Model: cmarkea/distilcamembert-base-sentiment
+Chunks scored: 43980
+Cells (party x topic) kept: 69 (≥10 chunks each)
+Shared topics: 7 (≥3 parties)
+
+=== Sentiment distribution overview ===
+  global mean:   +0.628
+  global std:    0.301
+  fraction >0:   95.1%
+  fraction <0:   4.9%
+
+=== Top polarised shared topics ===
+
+ topic  n_parties  n_chunks_total      min_party  min_mean            max_party  max_mean    range
+     5          7             802   radical_left  0.074644 liberal_center_right  0.547513 0.472869
+     2          7            8212   radical_left  0.471145       socialist_left  0.721428 0.250284
+     3          7            3563 national_right  0.480204       communist_left  0.727186 0.246982
+     4          6            2906 communist_left  0.544967       gaullist_right  0.740923 0.195956
+     0          7           13087   radical_left  0.514737       gaullist_right  0.704478 0.189741
+    15          5             134 socialist_left  0.138942 liberal_center_right  0.291867 0.152925
+     1          7           10147      ecologist  0.663421       gaullist_right  0.740437 0.077016
+
+=== Mean sentiment by party (overall) ===
+                          mean       std  count
+party_family                                   
+radical_left          0.455858  0.359808  10863
+liberal_center_right  0.671219  0.250990   3067
+ecologist             0.674891  0.284708   5287
+communist_left        0.680174  0.276502   7433
+socialist_left        0.680992  0.267334   5914
+national_right        0.691189  0.194879   5376
+gaullist_right        0.701863  0.230776   6040

@@ -1,0 +1,41 @@
+=== Doc-level Topic Vectors ===
+
+Docs: 21156, topics: 29
+
+=== Party family counts ===
+party_family
+other                   4042
+gaullist_right          3101
+socialist_left          3014
+communist_left          3014
+radical_left            2221
+ecologist               1586
+national_right          1571
+liberal_center_right    1523
+unclassified            1084
+
+=== Docs by year ===
+year
+1973    3841
+1978    4823
+1981    3120
+1988    3538
+1993    5834
+
+=== Dominant topics ===
+dominant_topic
+0     10429
+1      5353
+2      2914
+4       993
+3       848
+5       204
+7        66
+15       62
+11       60
+18       56
+9        45
+20       44
+12       32
+6        28
+24       22

@@ -18,7 +18,6 @@ ENSAE NLP course (2025–2026), C. Kermorvant.
 ## Main references
 
 Grootendorst, M. (2022). *BERTopic: Neural topic modeling with a class-based TF-IDF procedure.* arXiv:2203.05794.
-Blei, D., Ng, A., & Jordan, M. (2003). *Latent Dirichlet Allocation.* JMLR 3, 993–1022.
 
 ## Repository
 
@@ -31,7 +30,7 @@ Topic_modeling_nlp/
 ├── stop_word_fr.txt                # custom French stopword list (~700 entries)
 ├── data/                           # raw inputs (CSV + OCR text files per year)
 ├── outputs/                        # per-step outputs (CSV, figures, reports)
-├── scripts/                        # 13 numbered pipeline scripts (01 → 13)
+├── scripts/                        # numbered pipeline scripts (01 → 13)
 └── ntbks/                          # exploratory notebooks
 ```
 
@@ -67,8 +66,7 @@ Each pipeline step writes to its own folder following the convention `outputs/NN
 ├── 05_chunking_eval/               # comparison of chunking methods
 ├── 06_chunking_embedding/          # corpus_chunks.csv + chunk_embeddings.npy
 ├── 07_bertopic/                    # chunks_with_topics.csv + topic_info.csv + models/
-├── 08_lda/                         # chunks_with_topics_lda.csv + lda_topic_info.csv + models/
-├── 09_doc_topic_vectors/           # doc_topic_vectors_bertopic/lda.csv + doc_party_family.csv
+├── 09_doc_topic_vectors/           # doc_topic_vectors_bertopic.csv + doc_party_family.csv
 ├── 10_analyses/                    # Clustering and specialisation analyses with figures and reports
 ├── 11_visualizations/              # PCA/t-SNE projection, sanity digest, native BERTopic views
 └── 12_sentiment/                   # Sentiment scoring on shared topics + qualitative extracts
@@ -86,7 +84,6 @@ Each pipeline step writes to its own folder following the convention `outputs/NN
 ├── 05_chunking_eval.py             # Compare chunking strategies (fixed/sentence/paragraph)
 ├── 06_chunking_embedding.py        # Chunk text_clean + compute MiniLM embeddings
 ├── 07_bertopic.py                  # BERTopic + reduce_topics(30) (HDBSCAN noise -1 kept)
-├── 08_lda.py                       # LDA baseline (10 topics, c_v sweep on K)
 ├── 09_doc_topic_vectors.py         # Aggregate to doc level + party family mapping
 ├── 10_analyses.py                  # Inter-family clustering and thematic specialisation
 ├── 11_visualizations.py            # 2D projection, topic sanity digest, BERTopic native views
@@ -94,7 +91,7 @@ Each pipeline step writes to its own folder following the convention `outputs/NN
 └── 13_run_all.py                   # Orchestrator: runs steps 1 to 12 in order
 ```
 
-The orchestrator script `13_run_all.py` exposes flags `--from`, `--to`, `--skip`, `--continue-on-error`, and `--dry-run` for partial re-runs.
+The orchestrator script `13_run_all.py` runs steps 1 to 11 in order. To re-run a single step, just call it directly.
 </details>
 
 
@@ -105,13 +102,10 @@ The orchestrator script `13_run_all.py` exposes flags `--from`, `--to`, `--skip`
 Once the environment is set up (Step 1 below) and `data/archelect_search.csv` + the year folders are in place:
 
 ```bash
-python scripts/13_run_all.py            # full run, ~1h30 on M-series with MPS
-python scripts/13_run_all.py --skip 7   # skip BERTopic refit (use cached model)
-python scripts/13_run_all.py --from 9   # resume from step 9
-python scripts/13_run_all.py --dry-run  # print plan only
+uv run python scripts/13_run_all.py     # full run, ~1h20 on M-series with MPS
 ```
 
-Pipeline stops at the first failing step. Add `--continue-on-error` to push through.
+Each step is a self-contained script. To re-run a single step, just call it directly: `uv run python scripts/07_bertopic.py`.
 
 ---
 
@@ -120,18 +114,22 @@ Pipeline stops at the first failing step. Add `--continue-on-error` to push thro
 <details>
 <summary><strong>Step 1 — Install dependencies</strong></summary>
 
+The project is managed with [uv](https://docs.astral.sh/uv/). Dependencies are pinned in `uv.lock`.
+
 ```bash
 cd Topic_modeling_nlp
-python3 -m venv .venvnlp
-source .venvnlp/bin/activate
-pip install --upgrade pip
-pip install -e .
-python -m spacy download fr_core_news_sm
+uv sync                                 # creates .venv and installs from uv.lock
+uv run python -m spacy download fr_core_news_sm
+```
+
+To run a script:
+```bash
+uv run python scripts/13_run_all.py
 ```
 
 Main dependencies (declared in `pyproject.toml`):
 - `bertopic`, `sentence-transformers`, `umap-learn`, `hdbscan`
-- `gensim`, `spacy`, `transformers`
+- `gensim`, `spacy`, `transformers`, `torch`
 - `scikit-learn`, `scipy`
 - `pandas`, `numpy`, `matplotlib`, `plotly`, `kaleido`, `tqdm`
 </details>
@@ -158,12 +156,12 @@ Outputs:
 python scripts/02_data_quality.py
 ```
 
-Computes a per-document OCR quality score (share of recognisable French words minus share of length-≤2 tokens), drops the most degraded documents, and saves a few diagnostic plots on the raw vocabulary.
+Computes a per-document OCR quality score (share of recognisable French words minus share of length-≤2 tokens) and drops the most degraded documents.
 
 Outputs:
 - `outputs/02_data_quality/corpus_cleaned.csv`
-- `outputs/02_data_quality/reports/ocr_quality.txt`, `lexical_diagnostics.txt`
-- `outputs/02_data_quality/figures/ocr_score_by_year.png`, `text_length_by_year.png`, etc.
+- `outputs/02_data_quality/reports/ocr_quality.txt`
+- `outputs/02_data_quality/figures/ocr_score_by_year.png`, `ocr_score_distribution.png`, `kept_removed_by_year.png`
 </details>
 
 <details>
@@ -176,7 +174,7 @@ python scripts/03_preprocessing.py
 Builds two versions of each document:
 
 - `text_clean` — light cleaning only (OCR artefact removal, generic phrase removal, normalisation). Goes to the sentence transformer.
-- `text_preprocessed` — lemmatised (spaCy `fr_core_news_sm`) then stopword-pruned with our custom 700-word list. Goes to LDA and to the c-TF-IDF of BERTopic.
+- `text_preprocessed` — lemmatised (spaCy `fr_core_news_sm`) then stopword-pruned with our custom 700-word list. Goes to the c-TF-IDF representation of BERTopic.
 
 The order matters: **lemmatise first, then remove stopwords**, otherwise inflected variants slip through.
 
@@ -187,18 +185,18 @@ Outputs:
 </details>
 
 <details>
-<summary><strong>Step 5 — Exploratory data analysis</strong></summary>
+<summary><strong>Step 5 — Family-level EDA</strong></summary>
 
 ```bash
 python scripts/04_eda.py
 ```
 
-Top words by year, by raw party label, and by consolidated family. Also tracks a shortlist of political keywords (`travail`, `emploi`, `immigration`, `securite`, `europe`...) across years and families. Runs on `text_clean` (post-cleaning), not on the raw text, so the OCR boilerplate and generic campaign phrases are already gone.
+Top words per political family and the share of a few political keywords (`travail`, `emploi`, `immigration`, `securite`, `europe`...) across families and years. Runs on `text_clean` (post-cleaning), so OCR boilerplate and generic campaign phrases are already gone.
 
 Outputs:
-- `outputs/04_eda/eda_top_words_by_year.csv`, `eda_top_words_by_party.csv`, `eda_top_words_by_family.csv`
-- `outputs/04_eda/eda_keyword_trends.csv`, `eda_keyword_trends_by_family.csv`
-- `outputs/04_eda/figures/eda_keyword_trends.png`, `eda_keyword_trends_by_family.png`, `eda_top_words_by_family.png`
+- `outputs/04_eda/eda_top_words_by_family.csv`
+- `outputs/04_eda/eda_keyword_trends_by_family.csv`
+- `outputs/04_eda/figures/eda_top_words_by_family.png`, `eda_keyword_trends_by_family.png`
 </details>
 
 <details>
@@ -256,29 +254,11 @@ Outputs:
 - `outputs/07_bertopic/topic_labels.csv` (manual labels, one per topic)
 - `outputs/07_bertopic/models/bertopic_model/`
 - `outputs/07_bertopic/reports/topic_modeling_info.txt`
-- `outputs/07_bertopic/figures/topic_barchart.png`, `topic_heatmap.png`, `topic_hierarchy.png`, `topic_documents.png`, `topic_sizes.png`
+- `outputs/07_bertopic/figures/topic_barchart.png`, `topic_barchart_labelled.png`, `topic_heatmap.png`, `topic_hierarchy.png`, `topic_sizes.png`
 </details>
 
 <details>
-<summary><strong>Step 9 — LDA baseline</strong></summary>
-
-```bash
-python scripts/08_lda.py            # main fit, K=10
-python scripts/08_lda.py --eval-k   # coherence sweep on K ∈ {5, 10, 15, 20, 30}
-```
-
-LDA on the lemmatised corpus, 10 topics, 10 passes, 100 iterations, asymmetric priors. K=10 is picked from a coherence sweep over `K ∈ {5, 10, 15, 20, 30}` on 80k chunks, with four metrics (`u_mass`, `c_v`, `c_uci`, `c_npmi`); three out of four peak at K=10. Final `c_v` = 0.55 on top-15 words.
-
-Outputs:
-- `outputs/08_lda/chunks_with_topics_lda.csv`
-- `outputs/08_lda/lda_topic_info.csv`
-- `outputs/08_lda/models/lda_model/`
-- `outputs/08_lda/reports/lda_modeling_info.txt`
-- `outputs/08_lda/figures/lda_top_words_per_topic.png`, `lda_topic_prevalence.png`
-</details>
-
-<details>
-<summary><strong>Step 10 — Document-level aggregation and party family mapping</strong></summary>
+<summary><strong>Step 9 — Document-level aggregation and party family mapping</strong></summary>
 
 ```bash
 python scripts/09_doc_topic_vectors.py
@@ -288,70 +268,59 @@ Aggregates the chunk-level topic assignments back to the document level (probabi
 
 Outputs:
 - `outputs/09_doc_topic_vectors/doc_topic_vectors_bertopic.csv`
-- `outputs/09_doc_topic_vectors/doc_topic_vectors_lda.csv`
 - `outputs/09_doc_topic_vectors/doc_party_family.csv`
 - `outputs/09_doc_topic_vectors/reports/doc_topic_vectors_info.txt`
 - `outputs/09_doc_topic_vectors/figures/party_family_distribution.png`
 </details>
 
 <details>
-<summary><strong>Step 11 — Inter-family clustering and thematic specialisation</strong></summary>
+<summary><strong>Step 10 — Inter-family clustering and thematic specialisation</strong></summary>
 
 ```bash
-python scripts/10_analyses.py --all
-# or selectively:
-python scripts/10_analyses.py --analysis clustering
-python scripts/10_analyses.py --analysis specialisation
+python scripts/10_analyses.py
 ```
 
-- **Clustering**: KMeans (k=7) on documents in two spaces — the mean-embedding profile and the topic-distribution profile — scored by Purity, ARI, NMI, Silhouette.
+- **Clustering**: KMeans (k=7) on documents in two spaces — the mean-embedding profile and the topic-distribution profile — scored by Purity, ARI, NMI, Silhouette. A 3-panel UMAP projection of the chunks is also produced.
 - **Specialisation**: lift, Pearson χ², Cramér's V on the family × topic contingency table, plus the top-3 specialised topics per family.
 
 Outputs (under `outputs/10_analyses/`):
-- `clustering/party_clustering_*.csv`, `figures/clustering/party_projection.png`, `reports/clustering/party_clustering_info.txt`
-- `specialisation/topic_specialization_*.csv`, `figures/specialisation/topic_specialization_heatmap.png`, `reports/specialisation/topic_specialization_*.txt`
+- `clustering/party_clustering_embedding.csv`, `clustering/party_clustering_topic.csv`
+- `figures/clustering/party_projection.png`
+- `reports/clustering/party_clustering_info.txt`
+- `specialisation/topic_specialization_lift.csv`, `topic_specialization_top.csv`
+- `figures/specialisation/topic_specialization_heatmap.png`
+- `reports/specialisation/topic_specialization_chi2.txt`, `topic_specialization_info.txt`
 </details>
 
 <details>
-<summary><strong>Step 12 — Visualisations</strong></summary>
+<summary><strong>Step 11 — Topic sanity digest</strong></summary>
 
 ```bash
-python scripts/11_visualizations.py --all
-# or selectively:
-python scripts/11_visualizations.py --viz projection
-python scripts/11_visualizations.py --viz sanity
-python scripts/11_visualizations.py --viz native
+python scripts/11_visualizations.py
 ```
 
-Three independent routines:
+Per-topic digest used for the manual labelling step: top c-TF-IDF terms, three representative chunks, and three heuristic flags (`GENERIC_BOILERPLATE`, `REPETITIVE_WORDS`, `DUPLICATE_CHUNKS`). The duplicate-chunks flag is what surfaces the centrally-distributed-templates pattern discussed in the report.
 
-- `projection`: 2D PCA / t-SNE of doc topic profiles, faceted by year, coloured by family.
-- `sanity`: per-topic digest with top c-TF-IDF terms, three representative chunks, and three heuristic flags (`GENERIC_BOILERPLATE`, `REPETITIVE_WORDS`, `DUPLICATE_CHUNKS`).
-- `native`: BERTopic's own `topics_per_class` and `topics_over_time` views.
-
-Outputs (under `outputs/11_visualizations/`):
-- `projection/doc_topic_projection.csv`, `projection/figures/doc_projection*.png`
-- `sanity/topic_flags.csv`, `sanity/reports/topic_digest.txt`
-- `native/topics_per_class.csv`, `native/topics_over_time.csv`, `native/figures/*.png`
+Outputs:
+- `outputs/11_visualizations/sanity/topic_flags.csv`
+- `outputs/11_visualizations/sanity/reports/topic_digest.txt`
 </details>
 
 <details>
-<summary><strong>Step 13 — Sentiment on shared topics</strong></summary>
+<summary><strong>Step 12 — Sentiment on shared topics</strong></summary>
 
 ```bash
 python scripts/12_sentiment.py
-python scripts/12_sentiment.py --force-rescore   # ignore the cache
 ```
 
-Each chunk gets scored by `cmarkea/distilcamembert-base-sentiment`, with the 5-star output mapped to a continuous score in [-1, 1] via the expected rating. For every "shared" topic — at least 3 families with ≥10 chunks each — we report the range and std of family-mean sentiment, plus extracts of the most positive / most negative chunks per polarised topic. Scores are cached in `chunks_with_sentiment.csv`; subsequent runs skip the classifier pass unless `--force-rescore` is passed.
+Each chunk gets scored by `cmarkea/distilcamembert-base-sentiment`, with the 5-star output mapped to a continuous score in [-1, 1] via the expected rating. For every "shared" topic — at least 3 families with ≥10 chunks each — we report the range and std of family-mean sentiment, plus extracts of the most positive / most negative chunks per polarised topic. Scores are cached in `chunks_with_sentiment.csv`; delete the file to rescore from scratch.
 
 Outputs (under `outputs/12_sentiment/`):
 - `chunks_with_sentiment.csv` (cache)
 - `sentiment_by_party_topic.csv`
-- `sentiment_by_party_topic_year.csv`
 - `shared_topics_polarization.csv`
 - `reports/qualitative_extracts.txt`, `reports/sentiment_info.txt`
-- `figures/sentiment_heatmap.png`, `polarized_topics_box.png`, `sentiment_by_year.png`
+- `figures/sentiment_heatmap.png`, `polarized_topics_box.png`
 </details>
 
 ---
@@ -363,10 +332,9 @@ Approximate runtime on Apple M-series with MPS acceleration:
 | Step | Time |
 |---|---|
 | 01 → 03 | ~5 min |
-| 04 (lemmatisation) | ~8 min |
+| 03 (lemmatisation) | ~8 min |
 | 06 (embedding ~118k chunks) | ~8 min |
 | 07 (BERTopic + reduce_topics) | ~25 min |
-| 08 (LDA, 10 passes) | ~8 min |
 | 09 → 11 | ~5 min |
 | 12 (sentiment, first run) | ~30 min, cached afterwards |
-| Total (cold full run) | ~1h30 |
+| Total (cold full run) | ~1h20 |

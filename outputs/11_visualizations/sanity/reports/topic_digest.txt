@@ -1,0 +1,394 @@
+=== TOPIC SANITY DIGEST ===
+Source: /Users/brianramesh/Documents/NLP_PROJET/Topic_modeling_nlp/outputs/07_bertopic/topic_info.csv
+Topics: 30
+
+
+==============================================================================
+Topic   -1  |  count= 64172  |  flags: GENERIC_BOILERPLATE
+==============================================================================
+Name:  -1_circonscription_majorité_socialiste_union
+Words: circonscription | majorité | socialiste | union | député | candidat | maire | suppléant
+
+  [Rep doc 1] sur le parti socialiste que pour accéder au pouvoir c'est un socialiste de fraîche date mais c'est un vieux routier de la ive république il participé de nombreux gouvernements de la guerre froide et de la guerre d'algéri...
+
+  [Rep doc 2] elections legislatives - juin circonscription du nord hage ce dimanche juin réélisez votre député nottez georges hage candidat d'union pour la majorité de gauche soutenu par le parti communiste français le parti socialis...
+
+  [Rep doc 3] sur le parti socialiste que pour accéder au pouvoir c'est un socialiste de fraîche date mais c'est un vieux routier de la ivème république il participé de nombreux gouvernements de la guerre froide et de la guerre d'algé...
+
+
+==============================================================================
+Topic    0  |  count= 17335  |  flags: OK
+==============================================================================
+Name:  0_développement_retraite_die_droit
+Words: développement | retraite | die | droit | formation | agriculture | moyens | femmes
+
+  [Rep doc 1] le sort des personnes âgées - la garantie d'un revenu minimum de par mois - l'application réelle d'un statut juridique et social plus juste pour les femmes - la multiplication des crèches et des écoles maternelles - la c...
+
+  [Rep doc 2] - la réduction de la durée du travail - l'amélioration du sort des personnes âgées - l'allègement de la fiscalité - la garantie des intérêts des paysans du petit commerce de l'artisanat et des professions libérales - une...
+
+  [Rep doc 3] de mesures sociales d'une ampleur et d'une portée sans précédent ce qu'un gouvernement de la gauche unie réalisera tout de suite c'est notamment le relève- ment général des salaires le salaire minimum francs l'abaissemen...
+
+
+==============================================================================
+Topic    1  |  count= 13330  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  1_national_française_majorité_front national
+Words: national | française | majorité | front national | front | circonscription | votez | république
+
+  [Rep doc 1] maintenant la force d'avenir c'est le front national appel aux français le avril électrices et électeurs m'ont fait confiance - pour promouvoir le programme de redressement national - pour réduire le chômage l'immigratio...
+
+  [Rep doc 2] maintenant la force d'avenir c'est le front national appel aux français le avril électrices et électeurs m'on fait confiance - pour promouvoir le programme de redressement national - pour réduire le chômage l'immigration...
+
+  [Rep doc 3] maintenant la force d'avenir c'est le front national appel aux français le avril électrices et électeurs m'ont fait confiance - pour promouvoir le programme de redressement national - pour réduire le chômage l'immigratio...
+
+
+==============================================================================
+Topic    2  |  count=  8836  |  flags: OK
+==============================================================================
+Name:  2_communiste_communistes_union_voix
+Words: communiste | communistes | union | voix | tour | mitterrand | socialiste | candidats
+
+  [Rep doc 1] députés il ait des hommes et des femmes du peuple qui soient capables de critiquer le gouvernement quand il préparera ses mauvais coups contre nous n'envoyer la chambre que des députés socialistes c'est donner un chèque ...
+
+  [Rep doc 2] que parmi ces députés il ait des hommes et des femmes du peuple qui soient capables de critiquer le gouvernement quand il préparera ses mauvais coups contre nous n'envoyer la chambre que des députés socialistes c'est don...
+
+  [Rep doc 3] ait des hommes et des femmes du peuple qui soient capables de critiquer le gouvernement quand il préparera ses mauvais coups contre nous n'envoyer la chambre que des députés socialistes c'est donner un chèque en blanc mi...
+
+
+==============================================================================
+Topic    3  |  count=  4654  |  flags: OK
+==============================================================================
+Name:  3_avertissement_député_circonscription_lutte ouvriere
+Words: avertissement | député | circonscription | lutte ouvriere | ouvriere | candidat | bulletin vote | demandent
+
+  [Rep doc 1] leurs prix pendant que les prix industriels eux échapperont tout contrôle vous les travailleuses vous les travailleurs si vous approuvez ce que je dis si vous partagez mon hostilité envers la droite comme ma méfiance env...
+
+  [Rep doc 2] que les prix industriels eux échapperont tout contrôle vous les travailleuses vous les travailleurs si vous approuvez ce que je dis si vous partagez mon hostilité envers la droite comme ma méfiance envers le passé politi...
+
+  [Rep doc 3] que les prix industriels eux échapperont tout contrôle vous les travailleuses vous les travailleurs si vous approuvez ce que je dis si vous partagez mon hostilité envers la droite comme ma méfiance envers le passé politi...
+
+
+==============================================================================
+Topic    4  |  count=  3164  |  flags: OK
+==============================================================================
+Name:  4_écologie_ecologistes_ecologie_écologistes
+Words: écologie | ecologistes | ecologie | écologistes | entente | verts | entente ecologistes | environnement
+
+  [Rep doc 1] réalités ont donné raison aux écologistes réanimer la démocratie préserver la planète permettre chaque être humain de mener sa vie dans la dignité voilà l'urgence aujourd'hui l'écologie inspire un projet ouvert sur le mo...
+
+  [Rep doc 2] rêve mais peu peu les réalités ont donné raison aux écologistes réanimer la démocratie préserver la planète permettre chaque être humain de mener sa vie dans la dignité voilà l'urgence aujourd'hui l'écologie inspire un p...
+
+  [Rep doc 3] un rêve mais peu peu les réalités ont donné raison aux écologistes réanimer la démocratie préserver la planète permettre chaque être humain de mener sa vie dans la dignité voilà l'urgence aujourd'hui l'écologie inspire u...
+
+
+==============================================================================
+Topic    5  |  count=  1098  |  flags: OK
+==============================================================================
+Name:  5_président_conseiller_général_maire
+Words: président | conseiller | général | maire | suppléant | conseil | ancien | membre
+
+  [Rep doc 1] se réclamant du gaullisme de progrès son secrétaire général est dominique gallet ses présidents d'honneur sont le général françois binoche compagnon de la libération jacques debû-bridel ancien sénateur comite de soutien ...
+
+  [Rep doc 2] les compagnons se réclamant du gaul- lisme de progrès son secrétaire général est dominique gallet ses présidents d'honneur sont le général françois binoche compagnon de la libération jacques debû-bridel ancien sénateur r...
+
+  [Rep doc 3] la force conseiller général président de la commission des affaires culturelles et touristiques maire de saint-aubin philippe chevreul maire de mamers conseiller régional pierre coutable vice-président du conseil général...
+
+
+==============================================================================
+Topic    6  |  count=  1069  |  flags: OK
+==============================================================================
+Name:  6_lutte ouvrière_ouvrière_femmes_travailleuses
+Words: lutte ouvrière | ouvrière | femmes | travailleuses | travailleuses travailleurs | présente | candidats | arlette laguiller
+
+  [Rep doc 1] élections législatives de mars circonscription du pas-de-calais denis adler enseignant ans présenté par lutte ouvrière suppléant andré korb enseignant ans travailleuses travailleurs lutte ouvrière le parti que je représe...
+
+  [Rep doc 2] élections législatives de mars circonscription du nord jean-claude malevre ouvrier métallurgiste ans présenté par lutte ouvrière suppléante lysiane gouelle employée ans travailleuses travailleurs lutte ouvrière le parti ...
+
+  [Rep doc 3] élections législatives du mars me circonscription du gard dominique geindreau employé s n c - ans candidat présenté par lutte ouvrière suppléant frédéric pohyer enseignant - ans travailleuses travailleurs lutte ouvrière ...
+
+
+==============================================================================
+Topic    7  |  count=   742  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  7_devons_patrons_prenne_bénéfices
+Words: devons | patrons | prenne | bénéfices | bourgeoisie | patronat | prenne richesse | bourgeoisie fortunes
+
+  [Rep doc 1] bénéfices et si cela ne suffit pas qu'on prenne sur la richesse personnelle de la bourgeoisie car il en des fortunes en france qui ont été accumulées pendant des années et des années et qui grossissent encore tous les go...
+
+  [Rep doc 2] bénéfices et si cela ne suffit pas qu'on prenne sur la richesse personnelle de la bourgeoisie car il en des fortunes en france qui ont été accumulées pendant des années et des années et qui grossissent encore tous les go...
+
+  [Rep doc 3] bénéfices et si cela ne suffit pas qu'on prenne sur la richesse personnelle de la bourgeoisie car il en des fortunes en france qui ont été accumulées pendant des années et des années et qui grossissent encore tous les go...
+
+
+==============================================================================
+Topic    8  |  count=   618  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  8_hommes politiques_politiques_châteaux_vivent
+Words: hommes politiques | politiques | châteaux | vivent | payent journalistes | argent vivent | journalistes hommes | vivent châteaux
+
+  [Rep doc 1] hommes politiques qui les aident on découvre alors qu'ils en ont des propriétés des châteaux des comptes en banque qu'il en des pots de vin qui s'échangent des millions de francs rien qu'en pourboires ou des chefs de par...
+
+  [Rep doc 2] hommes politiques qui les aident on découvre alors qu'ils en ont des propriétés des châteaux des comptes en banque qu'il en des pots de vin qui s'échangent des millions de francs rien qu'en pourboires ou des chefs de par...
+
+  [Rep doc 3] hommes politiques qui les aident on découvre alors qu'ils en ont des propriétés des châteaux des comptes en banque qu'il en des pots de vin qui s'échangent des millions de francs rien qu'en pourboires ou des chefs de par...
+
+
+==============================================================================
+Topic    9  |  count=   392  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  9_devons_comptes_patronat_arrêter
+Words: devons | comptes | patronat | arrêter | route faudra | train préparer | gages garanties | violence sordide
+
+  [Rep doc 1] ne devons pas mendier nous devons viser les entreprises la tête le patronat au portefeuille les riches la bourse oui il peut avoir un nouveau juin ou un nouveau mai mais cette fois nous ne nous laisserons pas arrêter en ...
+
+  [Rep doc 2] ne devons pas mendier nous devons viser les entreprises la tête le patronat au portefeuille les riches la bourse oui il peut avoir un nouveau juin ou un nouveau mai mais cette fois nous ne nous laisserons pas arrêter en ...
+
+  [Rep doc 3] ne devons pas mendier nous devons viser les entreprises la tête le patronat au portefeuille les riches la bourse oui il peut avoir un nouveau juin ou un nouveau mai mais cette fois nous ne nous laisserons pas arrêter en ...
+
+
+==============================================================================
+Topic   10  |  count=   332  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  10_rpr_udf_rpr udf_ps
+Words: rpr | udf | rpr udf | ps | rétablir | pc | immigration | carte séjour
+
+  [Rep doc 1] au ps en ile-de-france au rpr rpr-udf ils vous trompent ils vous disent qu'ils sont contre l'immigration en réalité avec le ps et le pc le rpr et l'udf ont voté la carte de séjour de ans renouvelable pour les immigrés qu...
+
+  [Rep doc 2] au ps en ile-de-france au rpr rpr-udf ils vous trompent ils vous disent qu'ils sont contre l'immigration en réalité avec le ps et le pc le rpr et l'udf ont voté la carte de séjour de ans renouvelable pour les immigrés qu...
+
+  [Rep doc 3] au ps en ile-de-france au rpr rpr-udf ils vous trompent ils vous disent qu'ils sont contre l'immigration en réalité avec le ps et le pc le rpr et l'udf ont voté la carte de séjour de ans renouvelable pour les immigrés qu...
+
+
+==============================================================================
+Topic   11  |  count=   248  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  11_animaux_nature animaux_corridas_ruffi marseille
+Words: animaux | nature animaux | corridas | ruffi marseille | ruffi | rue ruffi | programmes faveur | complète code
+
+  [Rep doc 1] disposant du droit de véto ainsi tout risque de pollution sera écarté pour les animaux interdiction de la vivisection pratiquée uniquement pour des questions d'argent amélioration de leurs conditions d'existence lutte co...
+
+  [Rep doc 2] disposant du droit de véto ainsi tout risque de pollution sera écarté pour les animaux interdiction de la vivisection pratiquée uniquement pour des questions d'argent amélioration de leurs conditions d'existence lutte co...
+
+  [Rep doc 3] disposant du droit de véto ainsi tout risque de pollution sera écarté pour les animaux interdiction de la vivisection pratiquée uniquement pour des questions d'argent amélioration de leurs conditions d'existence lutte co...
+
+
+==============================================================================
+Topic   12  |  count=   247  |  flags: OK
+==============================================================================
+Name:  12_afrique_illusion_sortir_autour grands
+Words: afrique | illusion | sortir | autour grands | soviétique | pouvons accepter | alliés | afrique esprit
+
+  [Rep doc 1] de notre défense nationale déjà on prépare l'abandon du programme hadès nous ne pouvons accepter cette illusion de paix face la russie même illusion que celle de la france des années trente face hitler nous ne pouvons ac...
+
+  [Rep doc 2] défense nationale déjà on prépare l'abandon du programme hadès nous ne pouvons accepter cette illusion de paix face la russie même illusion que celle de la france des années trente face hitler nous ne pouvons accepter de...
+
+  [Rep doc 3] défense nationale déjà on prépare l'abandon du programme hadès nous ne pouvons accepter cette illusion de paix face la russie même illusion que celle de la france des années trente face hitler nous ne pouvons accepter de...
+
+
+==============================================================================
+Topic   14  |  count=   234  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  14_changent_voulons_économie post_criaient
+Words: changent | voulons | économie post | criaient | trafic influences | gouvernement bourgeoisie | utiliser peur | misère vieux
+
+  [Rep doc 1] ligue communiste section française de la quatrième internationale on nous traite de gauchistes voire de casseurs le gouvernement la bourgeoisie essaient parfois de nous utiliser pour faire peur que voulons-nous au juste ...
+
+  [Rep doc 2] ligue communiste section française de la quatrième internationale on nous traite de gauchistes voire de casseurs le gouvernement la bourgeoisie essaient parfois de nous utiliser pour faire peur que voulons-nous au juste ...
+
+  [Rep doc 3] ligue communiste section française de la quatrième internationale on nous traite de gauchistes voire de casseurs le gouvernement la bourgeoisie essaient parfois de nous utiliser pour faire peur que voulons-nous au juste ...
+
+
+==============================================================================
+Topic   13  |  count=   234  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  13_comptes_banque_comptes banque_employés
+Words: comptes | banque | comptes banque | employés | avoirs | propriétés | collectivement courant | publier tendance
+
+  [Rep doc 1] peu plus qu'on ouvre les comptes en banque patronaux quand les patrons pleurent misère ils veulent qu'on les croie sur parole mais qu'ils ouvrent donc leurs livres de comptes et pas seulement ceux des entreprises qu'ils ...
+
+  [Rep doc 2] peu plus qu'on ouvre les comptes en banque patronaux quand les patrons pleurent misère ils veulent qu'on les croie sur parole mais qu'ils ouvrent donc leurs livres de comptes et pas seulement ceux des entreprises qu'ils ...
+
+  [Rep doc 3] peu plus qu'on ouvre les comptes en banque patronaux quand les patrons pleurent misère ils veulent qu'on les croie sur parole mais qu'ils ouvrent donc leurs livres de comptes et pas seulement ceux des entreprises qu'ils ...
+
+
+==============================================================================
+Topic   15  |  count=   230  |  flags: OK
+==============================================================================
+Name:  15_maire_adjoint_municipal_conseiller municipal
+Words: maire | adjoint | municipal | conseiller municipal | conseiller | eta | st | di
+
+  [Rep doc 1] soulié mme bayou maire st-chinian bertrand maire cazouls-les-béziers beziat maire st-jean de pardailhan bouisset maire cruzy bourgin ancien maire la livinière bousquet maire aigues-vives boyer maire-adjoint sérignan cahu...
+
+  [Rep doc 2] maire du fontanil-cornillon roland dambuyant - conseiller municipal de st-pierre-de-chartreuse michel davallet - conseiller municipal d'allevard-les-bains danièle david - conseiller municipal de revel hubert delphin-poul...
+
+  [Rep doc 3] capestang antoine faure conseiller général honoraire louis brenac conseiller général honoraire averous maire-adjoint st-chinian decor maire-adjoint babeau milhau maire prades vernazobres azema maire beaufort delor maire ...
+
+
+==============================================================================
+Topic   16  |  count=   170  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  16_etat_services publics_publics etat_services
+Words: etat | services publics | publics etat | services | publics | financer | payer | impôts
+
+  [Rep doc 1] c'est dans la poche des contri- buables que l'etat le prend ce sont nos impôts pris directement sur notre salaire ou indirectement sur tout ce que nous achetons en tant que consommateurs qui aident les plus puissants dev...
+
+  [Rep doc 2] c'est dans la poche des contri- buables que l'etat le prend ce sont nos impôts pris directement sur notre salaire ou indirectement sur tout ce que nous achetons en tant que consommateurs qui aident les plus puissants dev...
+
+  [Rep doc 3] c'est dans la poche des contri- buables que l'etat le prend ce sont nos impôts pris directement sur notre salaire ou indirectement sur tout ce que nous achetons en tant que consommateurs qui aident les plus puissants dev...
+
+
+==============================================================================
+Topic   17  |  count=   165  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  17_bulletin vote_bulletin_peuple algérien_guerre radicaux
+Words: bulletin vote | bulletin | peuple algérien | guerre radicaux | gauche bourgeois | bourgeois banquiers | banquiers quête | négociation peuple
+
+  [Rep doc 1] maintenant il affirme que les travailleurs travailleraient avec plus d'ardeur sous la direction d'un gouvernement d'union populaire - le parti socialiste qui s'est compromis dans de nombreux gouvernements de la quatrième...
+
+  [Rep doc 2] maintenant il affirme que les travailleurs travailleraient avec plus d'ardeur sous la direction d'un gouvernement d'union populaire - le parti socialiste qui s'est compromis dans de nombreux gouvernements de la quatrième...
+
+  [Rep doc 3] maintenant il affirme que les travailleurs travailleraient avec plus d'ardeur sous la direction d'un gouvernement d'union populaire - le parti socialiste qui s'est compromis dans de nombreux gouvernements de la quatrième...
+
+
+==============================================================================
+Topic   18  |  count=   151  |  flags: OK
+==============================================================================
+Name:  18_maharishi_criminalité_compléter système_compléter
+Words: maharishi | criminalité | compléter système | compléter | système | science védique | védique maharishi | produira baisse
+
+  [Rep doc 1] utilisant la technologie la plus efficace ce jour pour atteindre ce résultat le programme de mt- sidhi cette simple mesure produira une baisse instantanée des problèmes notamment de la criminalité et du chômage et stimul...
+
+  [Rep doc 2] utilisant la technologie la plus efficace ce jour pour atteindre ce résultat le programme de mt- sidhi cette simple mesure produira une baisse instantanée des problèmes notamment de la criminalité et du chômage et stimul...
+
+  [Rep doc 3] l'humanité utilisant la technologie la plus efficace ce jour pour atteindre ce résultat le programme de mt- sidhi cette simple mesure produira une baisse instantanée des problèmes notamment de la criminalité et du chômag...
+
+
+==============================================================================
+Topic   19  |  count=   149  |  flags: OK
+==============================================================================
+Name:  19_petits_petits commerçants_hommes politiques_milliers
+Words: petits | petits commerçants | hommes politiques | milliers | socialiste petits | commerçants | politiques | commerçants saignés
+
+  [Rep doc 1] les petits commerçants les artisans doivent eux aussi voter contre les hommes politiques de la droite qui ont surimposé les petits pour mieux subventionner les gros sous leur gouvernement plus du quart de la paysannerie ...
+
+  [Rep doc 2] les petits commerçants les artisans doivent eux aussi voter contre les hommes politiques de la droite qui ont surimposé les petits pour mieux subventionner les gros sous leur gouvernement plus du quart de la paysannerie ...
+
+  [Rep doc 3] petits commerçants les artisans doivent eux aussi voter contre les hommes politiques de la droite qui ont surimposé les petits pour mieux subventionner les gros sous leur gouvernement plus du quart de la paysannerie été ...
+
+
+==============================================================================
+Topic   20  |  count=   140  |  flags: OK
+==============================================================================
+Name:  20_coup_temps vivre_oiseaux_change relever
+Words: coup | temps vivre | oiseaux | change relever | supprimer hierarchies | hierarchies | inégalités supprimer | ca
+
+  [Rep doc 1] tent un pays c'est mauvais signe mais j'ai un c dis grand- père tu crois qu'ils vont nous tuer le le bureau du chomage pas d'embauches pour que ça change il faut relever le s m c ça va me per- mettre d'acheter des chauss...
+
+  [Rep doc 2] les pâturages les villages tout il n' même plus d'oiseaux ils ont peur et tu sais quand les oiseaux deser- tent un pays c'est mauvais signe dis grand- père tu crois qu'ils vont nous tuer le bureau du chomage d'embauche p...
+
+  [Rep doc 3] même plus d'oiseaux ils ont peur et tu sais quand les oiseaux deser- tent un pays c'est mauvais signe mais j'ai un c dis grand- père tu crois qu'ils vont nous tuer le ké le kg bureau du chomage pas d'embauches pour que ç...
+
+
+==============================================================================
+Topic   21  |  count=   113  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  21_technologies_petits_recherche_guerre
+Words: technologies | petits | recherche | guerre | circonstances | résistance totalitarisme | garantie résistance | nécessaires guerre
+
+  [Rep doc 1] faut ouvrir nos enfants des emplois qui les enthousiasment aux frontières de la recherche non des petits boulots ou le chômage organiser l'application de ces technologies nouvelles au domaine militaire elles sont la fois...
+
+  [Rep doc 2] faut ouvrir nos enfants des emplois qui les enthousiasment aux frontières de la recherche non des petits boulots ou le chômage organiser l'application de ces technologies nouvelles au domaine militaire elles sont la fois...
+
+  [Rep doc 3] faut ouvrir nos enfants des emplois qui les enthousiasment aux frontières de la recherche non des petits boulots ou le chômage organiser l'application de ces technologies nouvelles au domaine militaire elles sont la fois...
+
+
+==============================================================================
+Topic   22  |  count=    90  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  22_pouvons accepter_accepter_pouvons_illusion
+Words: pouvons accepter | accepter | pouvons | illusion | capacité produire | démagogie extrémiste | parcs schtroumpfs | laminée
+
+  [Rep doc 1] temps parallèlement la domination du profit financier on propage une idéologie du gain rapide le jeu est partout tacotac télémago pmu sous l'illusion de la société post-industrielle et des parcs schtroumpfs c'est notre c...
+
+  [Rep doc 2] temps parallèlement la domination du profit financier on propage une idéologie du gain rapide le jeu est partout tacotac télémago pmu sous l'illusion de la société post-industrielle et des parcs schtroumpfs c'est notre c...
+
+  [Rep doc 3] temps parallèlement la domination du profit financier on propage une idéologie du gain rapide le jeu est partout tacotac télémago pmu sous l'illusion de la société post-industrielle et des parcs schtroumpfs c'est notre c...
+
+
+==============================================================================
+Topic   23  |  count=    90  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  23_cartels_europe_version_production
+Words: cartels | europe | version | production | accepte | cartels assurance | blocage production | alimentaire veut
+
+  [Rep doc 1] parti ouvrier européen siège rue nollet paris elections législatives du juin pour l'europe de la production contre l'europe des cartels si rien n'est fait pour l'en sortir la france est prise au piège nous allons tout dr...
+
+  [Rep doc 2] parti ouvrier européen siège rue nollet paris elections législatives du juin pour l'europe de la production contre l'europe des cartels si rien n'est fait pour l'en sortir la france est prise au piège nous allons tout dr...
+
+  [Rep doc 3] parti ouvrier européen siège rue nollet paris elections législatives du juin pour l'europe de la production contre l'europe des cartels si rien n'est fait pour l'en sortir la france est prise au piège nous allons tout dr...
+
+
+==============================================================================
+Topic   24  |  count=    84  |  flags: OK
+==============================================================================
+Name:  24_formation_enfant_cas_réhabiliter défendre
+Words: formation | enfant | cas | réhabiliter défendre | clubs réhabiliter | familles françai | intéressés mettre | actifs mères
+
+  [Rep doc 1] du citoyen notamment mise en place du tiers temps éducatif formation générale l'etat for- mation professionnelle au monde écono- mique formation artistique dans les aca- démies régionales et les ateliers munici- paux et ...
+
+  [Rep doc 2] citoyen notamment mise en place du tiers temps éducatif formation générale l'etat for- mation professionnelle au monde écono- mique formation artistique dans les aca- démies régionales et les ateliers munici- paux et for...
+
+  [Rep doc 3] citoyen notamment mise en place du tiers temps éducatif formation générale l'etat for- mation professionnelle au monde écono- mique formation artistique dans les aca- démies régionales et les ateliers munici- paux et for...
+
+
+==============================================================================
+Topic   25  |  count=    78  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  25_violence_révolution_bourgeoisie_luttes
+Words: violence | révolution | bourgeoisie | luttes | libération chili | travailleurs arrachent | socialisme obtient | arrachent revendications
+
+  [Rep doc 1] nous dit-on vous n'avez que les mots de lutte de violence et de révolution la bouche avec vous c'est toujours le tout ou rien c'est seulement la leçon de l'expérience c'est par les luttes que les travailleurs arrachent l...
+
+  [Rep doc 2] nous dit-on vous n'avez que les mots de lutte de violence et de révolution la bouche avec vous c'est toujours le tout ou rien c'est seulement la leçon de l'expérience c'est par les luttes que les travailleurs arrachent l...
+
+  [Rep doc 3] nous dit-on vous n'avez que les mots de lutte de violence et de révolution la bouche avec vous c'est toujours le tout ou rien c'est seulement la leçon de l'expérience c'est par les luttes que les travailleurs arrachent l...
+
+
+==============================================================================
+Topic   26  |  count=    78  |  flags: OK
+==============================================================================
+Name:  26_fondée_loi_accord loi_potentiel
+Words: fondée | loi | accord loi | potentiel | apprentissage | créant cohérence | investissement créant | cohérence redonnant
+
+  [Rep doc 1] la connaissance du potentiel créateur infini de la nature qui promeut une pensée une parole et une action en accord avec la loi naturelle et l'individu augmente l'efficacité la réusssite la satisfaction et le bonheur de ...
+
+  [Rep doc 2] l'introduction de la connaissance du potentiel créateur infini de la nature qui promeut une pensée une parole et une action en accord avec la loi naturelle et l'individu augmente l'efficacité la réusssite la satisfaction...
+
+  [Rep doc 3] l'introduction de la connaissance du potentiel créateur infini de la nature qui promeut une pensée une parole et une action en accord avec la loi naturelle et l'individu augmente l'efficacité la réusssite la satisfaction...
+
+
+==============================================================================
+Topic   27  |  count=    77  |  flags: DUPLICATE_CHUNKS
+==============================================================================
+Name:  27_charte immigration_concerne_charte_immigration
+Words: charte immigration | concerne | charte | immigration | suisse | immigration soumise | soumise | mesure
+
+  [Rep doc 1] l'immigration soumise referendum - un référendum sur l'immigration comme cela déjà été fait en suisse nous préconisons cette mesure parce que ce problème prend chaque jour une acuité accrue et qu'il concerne tous les fra...
+
+  [Rep doc 2] l'immigration soumise referendum - un référendum sur l'immigration comme cela déjà été fait en suisse nous préconisons cette mesure parce que ce problème prend chaque jour une acuité accrue et qu'il concerne tous les fra...
+
+  [Rep doc 3] l'immigration soumise referendum - un référendum sur l'immigration comme cela déjà été fait en suisse nous préconisons cette mesure parce que ce problème prend chaque jour une acuité accrue et qu'il concerne tous les fra...
+
+
+==============================================================================
+Topic   28  |  count=    63  |  flags: OK
+==============================================================================
+Name:  28_éducation_mesures obligatoires_invalidité vieillesse_maladie invalidité
+Words: éducation | mesures obligatoires | invalidité vieillesse | maladie invalidité | facultatives relevant | complémentaires facultatives | sociale maladie | obligatoires protection
+
+  [Rep doc 1] savoir dans divers domaines abrogation de la loi d'orientation dite loi edgar faure qui désagrégé nos institutions scolaires et universitaires livré l'enseignement au marxisme confié les programmes des fous ou des clowns...
+
+  [Rep doc 2] savoir dans divers domaines abrogation de la loi d'orientation dite loi edgar faure qui désagrégé nos institutions scolaires et universitaires livré l'enseignement au marxisme confié les programmes des fous ou des clowns...
+
+  [Rep doc 3] budgétaires savoir dans divers domaines abrogation de la loi d'orientation dite loi edgar faure qui désagrégé nos institutions scolaires et universitaires livré l'enseignement au marxisme confié les programmes des fous o...
+

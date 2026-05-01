@@ -1,11 +1,24 @@
 [project]
 name = "topic-modeling-nlp"
 version = "0.1.0"
-description = "Add your description here"
+description = "Topic modeling and semantic mapping of French political manifestos (Archelec, 1973-1993)."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "gensim>=4.4.0",
-    "numpy>=2.0.2",
-    "pandas>=2.3.3",
+    "bertopic>=0.17",
+    "sentence-transformers>=2.7",
+    "umap-learn>=0.5",
+    "hdbscan>=0.8",
+    "gensim>=4.4",
+    "spacy>=3.8",
+    "transformers>=4.40",
+    "torch>=2.0",
+    "scikit-learn>=1.4",
+    "scipy>=1.11",
+    "pandas>=2.0",
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+    "plotly>=6.0",
+    "kaleido>=1.0",
+    "tqdm>=4.66",
 ]

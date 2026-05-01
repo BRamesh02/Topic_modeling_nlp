@@ -2,24 +2,22 @@
 Step 12 — Sentiment by party_family x topic on shared topics.
 
 Score each chunk with cmarkea/distilcamembert-base-sentiment, map the 5-star
-output to a continuous score in [-1, 1] via the expected rating
-(E[stars] - 3) / 2, then aggregate per family x topic. A topic is "shared" if
-at least MIN_PARTIES families pass MIN_CHUNKS_PER_CELL on it. For each shared
-topic we report the range and std of family means, plus qualitative extracts
-(top positive and top negative chunks of the most polarised cells).
+output to a continuous score in [-1, 1] via (E[stars] - 3) / 2, then aggregate
+per family x topic. Topics shared by at least MIN_PARTIES families with at
+least MIN_CHUNKS_PER_CELL chunks each are reported with the range of family
+means (= polarisation indicator) and qualitative extracts.
+
+Sentiment scores are cached in chunks_with_sentiment.csv. Delete the file
+to rescore from scratch.
 """
 
-from __future__ import annotations
-
-from pathlib import Path
-import argparse
-import ast
 import re
-import textwrap
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -39,39 +37,31 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 CHUNKS_SENT_PATH = STEP_DIR / "chunks_with_sentiment.csv"
 SENT_TABLE_PATH = STEP_DIR / "sentiment_by_party_topic.csv"
-SENT_YEAR_PATH = STEP_DIR / "sentiment_by_party_topic_year.csv"
 SHARED_TOPICS_PATH = STEP_DIR / "shared_topics_polarization.csv"
 EXTRACTS_PATH = REPORTS_DIR / "qualitative_extracts.txt"
 INFO_PATH = REPORTS_DIR / "sentiment_info.txt"
 HEATMAP_PATH = FIG_DIR / "sentiment_heatmap.png"
 BOX_PATH = FIG_DIR / "polarized_topics_box.png"
 
-
 DOC_ID_COL = "doc_id"
 TEXT_COL = "chunk_text"
 TOPIC_COL = "topic"
 CHUNK_ID_COL = "chunk_id"
-YEAR_COL = "year"
 
 EXCLUDED_FAMILIES = {"unclassified", "other"}
+BOILERPLATE_TOPICS = {5, 15}
 
-DEFAULT_MODEL = "cmarkea/distilcamembert-base-sentiment"
-DEFAULT_BATCH_SIZE = 32
-DEFAULT_MAX_LENGTH = 256
+MODEL = "cmarkea/distilcamembert-base-sentiment"
+BATCH_SIZE = 32
+MAX_LENGTH = 256
 
-DEFAULT_MIN_CHUNKS_PER_CELL = 10
-DEFAULT_MIN_PARTIES = 3
-DEFAULT_TOP_K_POLARIZED = 8
-DEFAULT_EXTRACTS_PER_CELL = 3
+MIN_CHUNKS_PER_CELL = 10
+MIN_PARTIES = 3
+TOP_K_POLARIZED = 8
+EXTRACTS_PER_CELL = 3
 
 
-def score_chunks(
-    texts: list[str],
-    model_name: str,
-    batch_size: int,
-    max_length: int,
-) -> np.ndarray:
-    """Continuous sentiment score in [-1, 1] from the 5-star CamemBERT classifier."""
+def score_chunks(texts):
     import torch
     from transformers import (
         pipeline,
@@ -81,181 +71,104 @@ def score_chunks(
 
     if torch.cuda.is_available():
         device = 0
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    elif torch.backends.mps.is_available():
         device = "mps"
     else:
         device = -1
+    print(f"Loading sentiment model: {MODEL} | device={device}")
 
-    print(f"Loading sentiment model: {model_name} | device={device}")
-
-    tokenizer = CamembertTokenizer.from_pretrained(model_name)
-    model = CamembertForSequenceClassification.from_pretrained(model_name)
-
+    tokenizer = CamembertTokenizer.from_pretrained(MODEL)
+    model = CamembertForSequenceClassification.from_pretrained(MODEL)
     pipe = pipeline(
         task="text-classification",
-        model=model,
-        tokenizer=tokenizer,
-        top_k=None,
-        truncation=True,
-        max_length=max_length,
-        device=device,
+        model=model, tokenizer=tokenizer,
+        top_k=None, truncation=True, max_length=MAX_LENGTH, device=device,
     )
 
     scores = np.zeros(len(texts), dtype=float)
-
-    for start in range(0, len(texts), batch_size):
-        batch = texts[start:start + batch_size]
+    for start in range(0, len(texts), BATCH_SIZE):
+        batch = texts[start:start + BATCH_SIZE]
         results = pipe(batch)
 
         for i, res in enumerate(results):
-            expected = 0.0
-            total = 0.0
+            expected = total = 0.0
             for r in res:
-                label = r["label"].lower()
-                digit = None
-                for tok in label.replace("_", " ").split():
-                    if tok.isdigit():
-                        digit = int(tok)
-                        break
+                digit = next((int(t) for t in r["label"].lower().replace("_", " ").split() if t.isdigit()), None)
                 if digit is None:
                     continue
                 if digit == 0:
                     digit = 1
                 expected += digit * r["score"]
                 total += r["score"]
+            scores[start + i] = (expected / total - 3.0) / 2.0 if total > 0 else 0.0
 
-            if total > 0:
-                avg_rating = expected / total
-                scores[start + i] = (avg_rating - 3.0) / 2.0
-            else:
-                label_to_p = {r["label"].lower(): r["score"] for r in res}
-                scores[start + i] = label_to_p.get("positive", 0.0) - label_to_p.get("negative", 0.0)
-
-        if start % (batch_size * 20) == 0:
-            print(f"  scored {min(start + batch_size, len(texts))} / {len(texts)}")
-
+        if start % (BATCH_SIZE * 20) == 0:
+            print(f"  scored {min(start + BATCH_SIZE, len(texts))} / {len(texts)}")
     return scores
 
 
-def load_topic_auto_names(path: Path) -> dict[int, str]:
-    if not path.exists():
-        return {}
-    info = pd.read_csv(path)
-    if "Topic" not in info.columns or "Name" not in info.columns:
-        return {}
-    return dict(zip(info["Topic"].astype(int), info["Name"].astype(str)))
+def load_topic_labels():
+    labels = {}
+    if TOPIC_INFO_PATH.exists():
+        info = pd.read_csv(TOPIC_INFO_PATH)
+        labels.update(dict(zip(info["Topic"].astype(int), info["Name"].astype(str))))
+    if TOPIC_LABELS_PATH.exists():
+        manual = pd.read_csv(TOPIC_LABELS_PATH)
+        manual = manual[manual["label"].notna()]
+        labels.update(dict(zip(manual["topic_id"].astype(int), manual["label"].astype(str))))
+    return labels
 
 
-def load_topic_labels(path: Path = TOPIC_LABELS_PATH) -> dict[int, str]:
-    if not path.exists():
-        return {}
-    df = pd.read_csv(path)
-    if "topic_id" not in df.columns or "label" not in df.columns:
-        return {}
-    df = df[df["label"].notna()]
-    return dict(zip(df["topic_id"].astype(int), df["label"].astype(str)))
+def topic_display_name(tid, labels, max_len=35):
+    label = labels.get(int(tid), "")
+    if not label:
+        return f"Topic {tid}"
+    return label if len(label) <= max_len else label[: max_len - 1] + "…"
 
 
-def topic_display_name(tid: int, labels: dict[int, str] | None = None, max_len: int = 50) -> str:
-    if labels and tid in labels and labels[tid]:
-        label = labels[tid]
-        return label if len(label) <= max_len else label[: max_len - 1] + "…"
-    return f"Topic {tid}"
-
-
-def short_label(name: str, max_chars: int = 60) -> str:
-    if not isinstance(name, str):
-        return ""
-    # remove leading "0_", "12_" prefix
-    name = re.sub(r"^-?\d+_", "", name)
-    name = name.replace("_", " | ")
-    return name[:max_chars] + ("..." if len(name) > max_chars else "")
-
-
-def truncate(text: str, n: int = 220) -> str:
+def truncate(text, n=220):
     if not isinstance(text, str):
         return ""
     return re.sub(r"\s+", " ", text).strip()[:n] + "..."
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Sentiment per party_family x topic.")
-    parser.add_argument("--model", type=str, default=DEFAULT_MODEL)
-    parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
-    parser.add_argument("--max-length", type=int, default=DEFAULT_MAX_LENGTH)
-    parser.add_argument("--min-chunks-per-cell", type=int, default=DEFAULT_MIN_CHUNKS_PER_CELL,
-                        help="Minimum chunks for a (party, topic) cell to count.")
-    parser.add_argument("--min-parties", type=int, default=DEFAULT_MIN_PARTIES,
-                        help="A topic is 'shared' if at least this many parties pass the cell threshold.")
-    parser.add_argument("--top-k-polarized", type=int, default=DEFAULT_TOP_K_POLARIZED,
-                        help="Number of polarized topics to extract qualitatively.")
-    parser.add_argument("--extracts-per-cell", type=int, default=DEFAULT_EXTRACTS_PER_CELL,
-                        help="Number of chunks per (party, topic) cell in qualitative extracts.")
-    parser.add_argument("--force-rescore", action="store_true")
-    args = parser.parse_args()
-
-
+def main():
     print("Loading chunks...")
     chunks = pd.read_csv(CHUNKS_PATH)
-
-    required = {DOC_ID_COL, TEXT_COL, TOPIC_COL, CHUNK_ID_COL}
-    missing = required - set(chunks.columns)
-    if missing:
-        raise ValueError(f"Missing columns in chunks file: {missing}")
-
     chunks = chunks[chunks[TOPIC_COL] != -1].copy()
     chunks[DOC_ID_COL] = chunks[DOC_ID_COL].astype(str)
     chunks[CHUNK_ID_COL] = chunks[CHUNK_ID_COL].astype(str)
 
     print("Loading party families...")
     families = pd.read_csv(PARTY_FAMILY_PATH)
-    if DOC_ID_COL not in families.columns or "party_family" not in families.columns:
-        raise ValueError("doc_party_family.csv missing required columns.")
     families[DOC_ID_COL] = families[DOC_ID_COL].astype(str)
-
-    chunks = chunks.merge(
-        families[[DOC_ID_COL, "party_family"]], on=DOC_ID_COL, how="left"
-    )
+    chunks = chunks.merge(families[[DOC_ID_COL, "party_family"]], on=DOC_ID_COL, how="left")
     chunks["party_family"] = chunks["party_family"].fillna("unclassified")
     chunks = chunks[~chunks["party_family"].isin(EXCLUDED_FAMILIES)].copy()
     print(f"Chunks after family filter: {len(chunks)}")
 
-    if chunks.empty:
-        raise ValueError("No chunks left after filtering.")
+    topic_labels = load_topic_labels()
 
-    auto_names = load_topic_auto_names(TOPIC_INFO_PATH)
-    human_labels = load_topic_labels(TOPIC_LABELS_PATH)
-    topic_labels = {**auto_names, **human_labels}
-
-
-    if CHUNKS_SENT_PATH.exists() and not args.force_rescore:
+    if CHUNKS_SENT_PATH.exists():
         print(f"Loading cached sentiment: {CHUNKS_SENT_PATH}")
         cached = pd.read_csv(CHUNKS_SENT_PATH)
         cached[CHUNK_ID_COL] = cached[CHUNK_ID_COL].astype(str)
+        chunks = chunks.merge(cached[[CHUNK_ID_COL, "sentiment"]], on=CHUNK_ID_COL, how="left")
 
-        chunks = chunks.merge(
-            cached[[CHUNK_ID_COL, "sentiment"]], on=CHUNK_ID_COL, how="left"
-        )
-        missing_mask = chunks["sentiment"].isna()
-        if missing_mask.any():
-            print(f"Rescoring {missing_mask.sum()} missing chunks...")
-            scores = score_chunks(
-                chunks.loc[missing_mask, TEXT_COL].fillna("").astype(str).tolist(),
-                args.model, args.batch_size, args.max_length,
+        missing = chunks["sentiment"].isna()
+        if missing.any():
+            print(f"Rescoring {missing.sum()} missing chunks...")
+            chunks.loc[missing, "sentiment"] = score_chunks(
+                chunks.loc[missing, TEXT_COL].fillna("").astype(str).tolist()
             )
-            chunks.loc[missing_mask, "sentiment"] = scores
     else:
         print("Scoring all chunks...")
-        chunks["sentiment"] = score_chunks(
-            chunks[TEXT_COL].fillna("").astype(str).tolist(),
-            args.model, args.batch_size, args.max_length,
-        )
+        chunks["sentiment"] = score_chunks(chunks[TEXT_COL].fillna("").astype(str).tolist())
 
-    chunks[[CHUNK_ID_COL, "sentiment"]].to_csv(
-        CHUNKS_SENT_PATH, index=False, encoding="utf-8-sig"
-    )
+    chunks[[CHUNK_ID_COL, "sentiment"]].to_csv(CHUNKS_SENT_PATH, index=False, encoding="utf-8-sig")
     print(f"Saved sentiment cache: {CHUNKS_SENT_PATH}")
 
+    # Per (family, topic) cell
     grouped = (
         chunks.groupby(["party_family", TOPIC_COL])
         .agg(
@@ -266,63 +179,39 @@ def main() -> None:
         )
         .reset_index()
     )
-
-    grouped = grouped[grouped["n_chunks"] >= args.min_chunks_per_cell].copy()
+    grouped = grouped[grouped["n_chunks"] >= MIN_CHUNKS_PER_CELL].copy()
     grouped["topic_label"] = grouped[TOPIC_COL].map(topic_labels).fillna("")
     grouped.to_csv(SENT_TABLE_PATH, index=False, encoding="utf-8-sig")
     print(f"Saved per-cell sentiment table: {SENT_TABLE_PATH} ({len(grouped)} cells)")
 
-
+    # Shared topics polarisation
     shared_rows = []
     for tid, sub in grouped.groupby(TOPIC_COL):
-        if sub["party_family"].nunique() < args.min_parties:
+        if sub["party_family"].nunique() < MIN_PARTIES:
             continue
         means = sub.set_index("party_family")["mean_sentiment"]
-        sentiment_range = float(means.max() - means.min())
-        sentiment_std = float(means.std())
         max_party = means.idxmax()
         min_party = means.idxmin()
-        n_total_chunks = int(sub["n_chunks"].sum())
-
         shared_rows.append({
             "topic": int(tid),
             "topic_label": topic_labels.get(int(tid), ""),
             "n_parties": int(sub["party_family"].nunique()),
-            "n_chunks_total": n_total_chunks,
+            "n_chunks_total": int(sub["n_chunks"].sum()),
             "max_party": max_party,
             "max_mean": float(means[max_party]),
             "min_party": min_party,
             "min_mean": float(means[min_party]),
-            "range": sentiment_range,
-            "std": sentiment_std,
+            "range": float(means.max() - means.min()),
+            "std": float(means.std()),
         })
-
     shared = pd.DataFrame(shared_rows).sort_values("range", ascending=False)
     shared.to_csv(SHARED_TOPICS_PATH, index=False, encoding="utf-8-sig")
     print(f"Saved shared topics polarization: {SHARED_TOPICS_PATH} ({len(shared)} shared topics)")
 
-    if YEAR_COL in chunks.columns:
-        grouped_y = (
-            chunks.dropna(subset=[YEAR_COL])
-            .groupby(["party_family", TOPIC_COL, YEAR_COL])
-            .agg(
-                mean_sentiment=("sentiment", "mean"),
-                n_chunks=("sentiment", "size"),
-            )
-            .reset_index()
-        )
-        grouped_y = grouped_y[grouped_y["n_chunks"] >= args.min_chunks_per_cell].copy()
-        grouped_y["topic_label"] = grouped_y[TOPIC_COL].map(topic_labels).fillna("")
-        grouped_y.to_csv(SENT_YEAR_PATH, index=False, encoding="utf-8-sig")
-        print(f"Saved per-year sentiment table: {SENT_YEAR_PATH} ({len(grouped_y)} cells)")
-
-    top_polarized = shared.head(args.top_k_polarized)
-
+    # Qualitative extracts
+    top_polarized = shared.head(TOP_K_POLARIZED)
     with open(EXTRACTS_PATH, "w", encoding="utf-8") as f:
         f.write("=== Qualitative extracts — top polarised shared topics ===\n\n")
-        f.write(f"For each topic, the {args.extracts_per_cell} most positive chunks from the\n")
-        f.write("highest-sentiment party and the most negative chunks from the lowest.\n\n")
-
         for _, row in top_polarized.iterrows():
             tid = int(row["topic"])
             label = row["topic_label"] or f"Topic {tid}"
@@ -332,70 +221,65 @@ def main() -> None:
             f.write("=" * 90 + "\n\n")
 
             f.write(f">> {row['max_party']:>22}  (mean sentiment = {row['max_mean']:+.3f})\n")
-            sub_max = chunks[
-                (chunks[TOPIC_COL] == tid) & (chunks["party_family"] == row["max_party"])
-            ].nlargest(args.extracts_per_cell, "sentiment")
-            for _, c in sub_max.iterrows():
+            sub_max = chunks[(chunks[TOPIC_COL] == tid) & (chunks["party_family"] == row["max_party"])]
+            for _, c in sub_max.nlargest(EXTRACTS_PER_CELL, "sentiment").iterrows():
                 f.write(f"   [s={c['sentiment']:+.3f}] {truncate(c[TEXT_COL])}\n")
             f.write("\n")
 
             f.write(f">> {row['min_party']:>22}  (mean sentiment = {row['min_mean']:+.3f})\n")
-            sub_min = chunks[
-                (chunks[TOPIC_COL] == tid) & (chunks["party_family"] == row["min_party"])
-            ].nsmallest(args.extracts_per_cell, "sentiment")
-            for _, c in sub_min.iterrows():
+            sub_min = chunks[(chunks[TOPIC_COL] == tid) & (chunks["party_family"] == row["min_party"])]
+            for _, c in sub_min.nsmallest(EXTRACTS_PER_CELL, "sentiment").iterrows():
                 f.write(f"   [s={c['sentiment']:+.3f}] {truncate(c[TEXT_COL])}\n")
             f.write("\n\n")
-
     print(f"Saved qualitative extracts: {EXTRACTS_PATH}")
 
-    BOILERPLATE_TOPICS = {5, 15}
+    corpus_mean = float(chunks["sentiment"].mean())
 
-    if not grouped.empty:
-        from matplotlib.colors import TwoSlopeNorm
-
-        topic_range = grouped.groupby(TOPIC_COL)["mean_sentiment"].agg(lambda s: s.max() - s.min())
-        topic_nfam  = grouped.groupby(TOPIC_COL)["party_family"].nunique()
-        eligible_topics = topic_range.index[
-            (topic_nfam >= 5) & (topic_range >= 0.18)
+    # Heatmap
+    topic_range = grouped.groupby(TOPIC_COL)["mean_sentiment"].agg(lambda s: s.max() - s.min())
+    topic_nfam = grouped.groupby(TOPIC_COL)["party_family"].nunique()
+    eligible = sorted(
+        topic_range.index[
+            (topic_nfam >= 5)
+            & (topic_range >= 0.18)
             & (~topic_range.index.isin(BOILERPLATE_TOPICS))
-        ]
-        eligible_topics = sorted(eligible_topics, key=lambda t: -topic_range[t])
-        sub = grouped[grouped[TOPIC_COL].isin(eligible_topics)]
-        if not sub.empty:
-            pivot = sub.pivot(index="party_family", columns=TOPIC_COL, values="mean_sentiment")
-            pivot = pivot.loc[:, eligible_topics]
+        ],
+        key=lambda t: -topic_range[t],
+    )
 
-            corpus_mean = float(chunks["sentiment"].mean())
-            vmin = min(float(np.nanmin(pivot.values)), corpus_mean - 0.05)
-            vmax = max(float(np.nanmax(pivot.values)), corpus_mean + 0.05)
-            norm = TwoSlopeNorm(vcenter=corpus_mean, vmin=vmin, vmax=vmax)
+    if eligible:
+        sub = grouped[grouped[TOPIC_COL].isin(eligible)]
+        pivot = sub.pivot(index="party_family", columns=TOPIC_COL, values="mean_sentiment").loc[:, eligible]
 
-            xtick_labels = [topic_display_name(int(t), human_labels, max_len=35) for t in pivot.columns]
-            fig, ax = plt.subplots(figsize=(max(14, 0.6 * pivot.shape[1]), max(6, 0.85 * pivot.shape[0])))
-            im = ax.imshow(pivot.values, aspect="auto", cmap="RdYlGn", norm=norm)
-            ax.set_xticks(np.arange(pivot.shape[1]))
-            ax.set_xticklabels(xtick_labels, rotation=60, ha="right", fontsize=11)
-            ax.set_yticks(np.arange(pivot.shape[0]))
-            ax.set_yticklabels(pivot.index, fontsize=12)
-            ax.set_xlabel("Topic", fontsize=12)
-            ax.set_title(
-                f"Mean sentiment by party_family × topic\n"
-                f"(centered on corpus mean = {corpus_mean:+.2f}; "
-                f"green = relatively positive, red = relatively critical)",
-                fontsize=13,
-            )
-            cbar = plt.colorbar(im, ax=ax)
-            cbar.set_label("Mean sentiment", fontsize=12)
-            cbar.ax.tick_params(labelsize=10)
-            plt.tight_layout()
-            plt.savefig(HEATMAP_PATH, dpi=150, bbox_inches="tight")
-            plt.close()
-            print(f"Saved heatmap: {HEATMAP_PATH}")
+        vmin = min(float(np.nanmin(pivot.values)), corpus_mean - 0.05)
+        vmax = max(float(np.nanmax(pivot.values)), corpus_mean + 0.05)
+        norm = TwoSlopeNorm(vcenter=corpus_mean, vmin=vmin, vmax=vmax)
+        xtick_labels = [topic_display_name(t, topic_labels) for t in pivot.columns]
 
-    grouped_strong = grouped[grouped["n_chunks"] >= 10]
-    box_candidates = (
-        grouped_strong[~grouped_strong[TOPIC_COL].isin(BOILERPLATE_TOPICS)]
+        fig, ax = plt.subplots(figsize=(max(14, 0.6 * pivot.shape[1]), max(6, 0.85 * pivot.shape[0])))
+        im = ax.imshow(pivot.values, aspect="auto", cmap="RdYlGn", norm=norm)
+        ax.set_xticks(np.arange(pivot.shape[1]))
+        ax.set_xticklabels(xtick_labels, rotation=60, ha="right", fontsize=11)
+        ax.set_yticks(np.arange(pivot.shape[0]))
+        ax.set_yticklabels(pivot.index, fontsize=12)
+        ax.set_xlabel("Topic", fontsize=12)
+        ax.set_title(
+            f"Mean sentiment by party_family × topic\n"
+            f"(centered on corpus mean = {corpus_mean:+.2f}; "
+            f"green = relatively positive, red = relatively critical)",
+            fontsize=13,
+        )
+        cbar = plt.colorbar(im, ax=ax)
+        cbar.set_label("Mean sentiment", fontsize=12)
+        cbar.ax.tick_params(labelsize=10)
+        plt.tight_layout()
+        plt.savefig(HEATMAP_PATH, dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"Saved heatmap: {HEATMAP_PATH}")
+
+    # Boxplots
+    box_topics = (
+        grouped[(~grouped[TOPIC_COL].isin(BOILERPLATE_TOPICS)) & (grouped["n_chunks"] >= 10)]
         .groupby(TOPIC_COL)
         .agg(
             n_parties=("party_family", "nunique"),
@@ -405,19 +289,14 @@ def main() -> None:
         )
         .reset_index()
     )
-    box_candidates["range"] = box_candidates["max_mean"] - box_candidates["min_mean"]
-    box_candidates = (
-        box_candidates[(box_candidates["n_parties"] >= 5) & (box_candidates["range"] >= 0.18)]
-        .sort_values("range", ascending=False)
-        .head(3)
-    )
+    box_topics["range"] = box_topics["max_mean"] - box_topics["min_mean"]
+    box_topics = box_topics[(box_topics["n_parties"] >= 5) & (box_topics["range"] >= 0.18)]
+    box_topics = box_topics.sort_values("range", ascending=False).head(3)
 
-    if not box_candidates.empty:
-        corpus_mean = float(chunks["sentiment"].mean())
-        n_topics = len(box_candidates)
-        fig, axes = plt.subplots(n_topics, 1, figsize=(13, 3.2 * n_topics), squeeze=False)
-
-        for ax_row, (_, r) in zip(axes, box_candidates.iterrows()):
+    if not box_topics.empty:
+        n = len(box_topics)
+        fig, axes = plt.subplots(n, 1, figsize=(13, 3.2 * n), squeeze=False)
+        for ax_row, (_, r) in zip(axes, box_topics.iterrows()):
             ax = ax_row[0]
             tid = int(r[TOPIC_COL])
             label = topic_labels.get(tid, f"Topic {tid}")
@@ -425,17 +304,12 @@ def main() -> None:
 
             family_counts = sub_chunks["party_family"].value_counts()
             parties = family_counts[family_counts >= 10].index.tolist()
-            party_means = {
-                p: float(sub_chunks.loc[sub_chunks["party_family"] == p, "sentiment"].mean())
-                for p in parties
-            }
+            party_means = {p: float(sub_chunks.loc[sub_chunks["party_family"] == p, "sentiment"].mean())
+                           for p in parties}
             parties = sorted(parties, key=lambda p: party_means[p])
-            data = [
-                sub_chunks.loc[sub_chunks["party_family"] == p, "sentiment"].values
-                for p in parties
-            ]
+            data = [sub_chunks.loc[sub_chunks["party_family"] == p, "sentiment"].values for p in parties]
 
-            ax.boxplot(data, labels=parties, vert=True, showfliers=False, patch_artist=True,
+            ax.boxplot(data, tick_labels=parties, vert=True, showfliers=False, patch_artist=True,
                        boxprops=dict(facecolor="#a6c8ed", edgecolor="#234a78"),
                        medianprops=dict(color="#c44e52", linewidth=2.0))
             ax.set_title(
@@ -458,61 +332,16 @@ def main() -> None:
         plt.close()
         print(f"Saved boxplots: {BOX_PATH}")
 
-    if YEAR_COL in chunks.columns and not top_polarized.empty:
-        try:
-            grouped_y_full = (
-                chunks.dropna(subset=[YEAR_COL])
-                .groupby(["party_family", TOPIC_COL, YEAR_COL])
-                .agg(mean_sentiment=("sentiment", "mean"), n=("sentiment", "size"))
-                .reset_index()
-            )
-            grouped_y_full = grouped_y_full[grouped_y_full["n"] >= args.min_chunks_per_cell]
-
-            top_topics = top_polarized["topic"].head(min(6, len(top_polarized))).tolist()
-            sub = grouped_y_full[grouped_y_full[TOPIC_COL].isin(top_topics)]
-
-            ncols = 2
-            nrows = (len(top_topics) + ncols - 1) // ncols
-            fig, axes = plt.subplots(nrows, ncols, figsize=(7 * ncols, 3.5 * nrows), squeeze=False)
-            for idx, tid in enumerate(top_topics):
-                ax = axes[idx // ncols][idx % ncols]
-                topic_df = sub[sub[TOPIC_COL] == tid]
-                for fam, g in topic_df.groupby("party_family"):
-                    g = g.sort_values(YEAR_COL)
-                    ax.plot(g[YEAR_COL].astype(str), g["mean_sentiment"],
-                            marker="o", label=fam, alpha=0.85)
-                label = (top_polarized[top_polarized["topic"] == tid]["topic_label"].values[:1] or [""])[0]
-                ax.set_title(f"Topic {tid}: {label[:60]}", fontsize=10)
-                ax.set_ylabel("Mean sentiment")
-                ax.axhline(0, color="gray", linewidth=0.5, linestyle="--")
-                ax.grid(alpha=0.3)
-                ax.tick_params(axis="x", labelsize=9)
-            for idx in range(len(top_topics), nrows * ncols):
-                axes[idx // ncols][idx % ncols].axis("off")
-            handles, labels = axes[0][0].get_legend_handles_labels()
-            if handles:
-                fig.legend(handles, labels, loc="lower center", ncol=min(7, len(handles)),
-                           fontsize=9, bbox_to_anchor=(0.5, -0.02))
-            plt.suptitle("Sentiment evolution by year — top polarized shared topics", y=1.0)
-            plt.tight_layout()
-            plt.savefig(FIG_DIR / "sentiment_by_year.png", dpi=150, bbox_inches="tight")
-            plt.close()
-            print(f"Saved year-by-year figure: {FIG_DIR / 'sentiment_by_year.png'}")
-        except Exception as e:
-            print(f"Could not generate sentiment_by_year figure: {e}")
-
-
+    # Summary
     with open(INFO_PATH, "w", encoding="utf-8") as f:
         f.write("=== Sentiment by party_family x topic ===\n\n")
-        f.write(f"Model: {args.model}\n")
+        f.write(f"Model: {MODEL}\n")
         f.write(f"Chunks scored: {len(chunks)}\n")
-        f.write(f"Cells (party x topic) kept: {len(grouped)}\n")
-        f.write(f"  threshold: ≥{args.min_chunks_per_cell} chunks per cell\n")
-        f.write(f"Shared topics: {len(shared)}\n")
-        f.write(f"  threshold: ≥{args.min_parties} parties per topic\n\n")
+        f.write(f"Cells (party x topic) kept: {len(grouped)} (≥{MIN_CHUNKS_PER_CELL} chunks each)\n")
+        f.write(f"Shared topics: {len(shared)} (≥{MIN_PARTIES} parties)\n\n")
 
         f.write("=== Sentiment distribution overview ===\n")
-        f.write(f"  global mean:   {chunks['sentiment'].mean():+.3f}\n")
+        f.write(f"  global mean:   {corpus_mean:+.3f}\n")
         f.write(f"  global std:    {chunks['sentiment'].std():.3f}\n")
         f.write(f"  fraction >0:   {(chunks['sentiment'] > 0).mean():.1%}\n")
         f.write(f"  fraction <0:   {(chunks['sentiment'] < 0).mean():.1%}\n\n")
@@ -523,21 +352,9 @@ def main() -> None:
         f.write("\n\n")
 
         f.write("=== Mean sentiment by party (overall) ===\n")
-        party_means = (
-            chunks.groupby("party_family")["sentiment"]
-            .agg(["mean", "std", "count"])
-            .sort_values("mean")
-        )
+        party_means = chunks.groupby("party_family")["sentiment"].agg(["mean", "std", "count"]).sort_values("mean")
         f.write(party_means.to_string())
-        f.write("\n\n")
-
-        f.write("=== Files produced ===\n")
-        f.write(f"  per-cell:       {SENT_TABLE_PATH.name}\n")
-        f.write(f"  per-cell-year:  {SENT_YEAR_PATH.name}\n")
-        f.write(f"  shared topics:  {SHARED_TOPICS_PATH.name}\n")
-        f.write(f"  extracts:       {EXTRACTS_PATH.name}\n")
-        f.write(f"  heatmap:        {HEATMAP_PATH.name}\n")
-        f.write(f"  boxplots:       {BOX_PATH.name}\n")
+        f.write("\n")
 
     print(f"Saved summary: {INFO_PATH}")
     print("Done.")

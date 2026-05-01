@@ -1,0 +1,31 @@
+=== Topic specialisation ===
+
+Documents used: 16030
+Topics: 29
+Parties (families): 7
+
+Chi2=54026.0  dof=168  p=0.000e+00  Cramer's V=0.4525
+
+=== Top-K specialized topics per party (by lift) ===
+        party_family  rank  topic_id                    topic_label      lift  log_lift
+      communist_left     1         2            PCF anti-Mitterrand  2.308006  0.836384
+      communist_left     2        15        listes élus signataires  1.057796  0.056187
+      communist_left     3         0 gauche unie / programme commun  0.996433 -0.003573
+           ecologist     1        11                défense animaux 10.107188  2.313247
+           ecologist     2         4           écolos Verts/GE 1993  9.356808  2.236104
+           ecologist     3        24          éducation / formation  7.075032  1.956572
+      gaullist_right     1         5    présentation candidats (CV)  2.062112  0.723731
+      gaullist_right     2        15        listes élus signataires  1.558847  0.443947
+      gaullist_right     3        24          éducation / formation  1.550790  0.438765
+liberal_center_right     1        26              PLN loi naturelle  3.238547  1.175125
+liberal_center_right     2         5    présentation candidats (CV)  1.680389  0.519025
+liberal_center_right     3        18                  PLN Maharishi  1.629721  0.488409
+      national_right     1        28             PFN anti-loi Faure 10.203692  2.322750
+      national_right     2        27      FN référendum immigration 10.203692  2.322750
+      national_right     3        10   FN tous coupables RPR-UDF-PS 10.172913  2.319729
+        radical_left     1        25                      LCR Chili  7.217470  1.976504
+        radical_left     2        19          LO petits commerçants  7.217470  1.976504
+        radical_left     3        23          POE Europe production  7.217470  1.976504
+      socialist_left     1         5    présentation candidats (CV)  1.649171  0.500273
+      socialist_left     2         0 gauche unie / programme commun  1.408214  0.342322
+      socialist_left     3        15        listes élus signataires  1.314068  0.273128

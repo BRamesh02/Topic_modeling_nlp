@@ -1,0 +1,10 @@
+=== Chi-square independence (party x topic) ===
+
+Contingency shape: (7, 29)
+Total chunks: 43980
+Chi2 statistic: 54026.00
+Degrees of freedom: 168
+p-value: 0.000e+00
+Cramer's V: 0.4525
+
+(0.1 = small, 0.3 = medium, 0.5 = large effect)

@@ -1,0 +1,55 @@
+=== CHUNKING + EMBEDDING INFO ===
+
+Input column: text_clean (natural French, kept for embeddings)
+Input documents: 21156
+Chunks created: 118383
+Average chunks per document: 5.60
+
+Chunk size: 150
+Chunk overlap: 30
+Minimum chunk words: 40
+
+Device: mps
+Embedding model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+Embedding matrix shape: (118383, 384)
+
+Chunk length distribution:
+count    118383.000000
+mean        140.974819
+std          23.963139
+min          40.000000
+25%         150.000000
+50%         150.000000
+75%         150.000000
+max         150.000000
+
+Chunks by year:
+year
+1973    24347
+1978    31522
+1981    16394
+1988    15750
+1993    30370
+
+Top political supports by chunks:
+titulaire-soutien
+non mentionné                                                          18739
+Parti communiste français                                              15504
+Lutte ouvrière                                                         10011
+Parti socialiste                                                        8534
+Front national                                                          8339
+Rassemblement pour la République                                        3222
+Parti socialiste unifié                                                 3147
+Rassemblement pour la République;Union pour la démocratie française     3119
+Union pour la démocratie française;Rassemblement pour la République     1937
+Ligue communiste révolutionnaire                                        1868
+Union des républicains de progrès                                       1685
+Parti socialiste;Mouvement des radicaux de gauche                       1525
+Verts;Génération écologie                                               1432
+Union pour la démocratie française                                      1104
+Mouvement réformateur                                                    949
+Parti des forces nouvelles                                               945
+Ligue communiste                                                         922
+Mouvement des radicaux de gauche                                         889
+indépendant                                                              792
+Nouveaux écologistes du rassemblement nature et animaux                  779

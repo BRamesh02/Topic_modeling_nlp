@@ -1,0 +1,20 @@
+=== CHUNKING METHODS EVALUATION ===
+
+Input: /Users/brianramesh/Documents/NLP_PROJET/Topic_modeling_nlp/outputs/04_preprocessing/corpus_preprocessed.csv
+Text column: text_clean
+Documents used: 200
+Min words per chunk: 20
+Fixed sizes: [100, 150, 200, 300] (overlap variant: 30)
+Topn words per chunk: 10
+
+        method  n_chunks  avg_chunk_words  coherence_c_v  topic_diversity  lexical_diversity  combined_score
+     fixed_100      1289        94.430566       0.967363         0.678588           0.738618        0.656441
+     fixed_150       889       137.017998       0.873695         0.732283           0.697076        0.639793
+fixed_150_ov30      1056       139.845644       0.905351         0.681155           0.692321        0.616685
+fixed_200_ov30       782       178.333760       0.834207         0.709079           0.663706        0.591519
+     fixed_200       699       174.291845       0.770487         0.723319           0.673322        0.557308
+fixed_100_ov30      1754        96.132839       0.963258         0.536887           0.734301        0.517161
+fixed_300_ov30       523       251.791587       0.702534         0.701912           0.631922        0.493117
+      sentence       200       609.985000       0.632776         0.766000           0.537373        0.484706
+     paragraph       200       609.985000       0.632776         0.766000           0.537373        0.484706
+     fixed_300       493       247.326572       0.666501         0.701420           0.636049        0.467497

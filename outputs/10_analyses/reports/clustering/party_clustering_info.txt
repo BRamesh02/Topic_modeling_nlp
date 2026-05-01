@@ -1,0 +1,26 @@
+=== Party clustering ===
+
+Documents used: 16030
+K (clusters): 7
+
+=== View A: Raw embedding space ===
+Purity:     0.5364
+ARI:        0.2538
+NMI:        0.3829
+Silhouette: 0.0907
+
+=== View B: Topic distribution space ===
+Purity:     0.3497
+ARI:        0.0878
+NMI:        0.1517
+Silhouette: 0.4583
+
+=== Label counts ===
+party_family
+gaullist_right          3101
+socialist_left          3014
+communist_left          3014
+radical_left            2221
+ecologist               1586
+national_right          1571
+liberal_center_right    1523

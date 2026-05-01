@@ -1,0 +1,37 @@
+=== PREPROCESSING INFO ===
+
+Initial documents: 21158
+Documents kept: 21156
+Documents removed: 2
+Stopwords used: 700
+
+=== TOKEN COUNTS ===
+
+Average tokens (text): 711.93
+Average tokens (text_clean): 651.26
+Average tokens (text_preprocessed): 327.07
+Average reduction (raw -> preprocessed): 54.06%
+
+Token distribution (preprocessed):
+count    21158.000000
+mean       327.072833
+std        179.936163
+min         25.000000
+25%        201.000000
+50%        294.000000
+75%        425.000000
+max       2552.000000
+
+=== TOKENS BY YEAR (preprocessed) ===
+
+       count        mean   min    50%     max
+year                                         
+1973  3841.0  372.496746  35.0  331.0  1706.0
+1978  4823.0  376.106987  51.0  368.0  2552.0
+1981  3120.0  307.838462  52.0  272.0  1575.0
+1988  3539.0  259.752190  25.0  229.0  1127.0
+1993  5835.0  307.757326  28.0  287.0  1790.0
+
+=== POLITICAL WORDS KEPT ===
+
+agriculture, candidat, candidate, chomage, chômage, droite, ecole, economie, election, emploi, entreprise, etat, europe, famille, femme, femmes, france, français, française, gauche, immigration, impot, impôt, jeunesse, justice, liberte, liberté, logement, nation, national, nationale, ouvriere, ouvriers, ouvrière, parti, peuple, politique, pouvoir, reforme, republique, réforme, république, salaire, sante, santé, securite, social, sécurité, travail, travailleurs, vote, école, économie, élection, état

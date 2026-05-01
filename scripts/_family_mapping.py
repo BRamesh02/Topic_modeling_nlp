@@ -5,8 +5,6 @@ political families. Rule order matters: more specific patterns first (so
 'socialiste' rule sends it to socialist_left).
 """
 
-from __future__ import annotations
-
 import re
 
 import pandas as pd
@@ -15,16 +13,16 @@ import pandas as pd
 AFFILIATION_FIELDS = ["titulaire-soutien", "titulaire-liste"]
 
 
-def _compact(value) -> str:
+def compact(value):
     if pd.isna(value):
         return ""
     return str(value).lower()
 
 
-def assign_party_family(row: pd.Series) -> str:
+def assign_party_family(row):
     parts = []
     for col in AFFILIATION_FIELDS:
-        val = _compact(row.get(col, ""))
+        val = compact(row.get(col, ""))
         if val and "non mentionné" not in val:
             parts.append(val)
     labels = " ".join(parts)

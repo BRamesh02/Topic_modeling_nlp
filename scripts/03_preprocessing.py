@@ -2,16 +2,19 @@
 Step 3 — Two-track preprocessing.
 
   text_clean         lightly cleaned, kept for the sentence-transformer.
-  text_preprocessed  lemmatised + stopwords removed, used by LDA and c-TF-IDF.
+  text_preprocessed  lemmatised + stopwords removed, used by BERTopic's
+                     c-TF-IDF representation.
 
-Order: normalize -> lemmatize -> remove_stopwords (so stopwords are matched on
-the lemma form).
+Order: normalize -> lemmatize -> remove_stopwords (so stopwords are matched
+on the lemma form).
 """
 
-from pathlib import Path
 import re
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import spacy
 from tqdm import tqdm
 
@@ -62,28 +65,24 @@ POLITICAL_WORDS_TO_KEEP = {
 }
 
 
-def load_stopwords(path: Path) -> set[str]:
+def load_stopwords(path):
     if not path.exists():
         raise FileNotFoundError(f"Stopword file not found: {path}")
-
     stopwords = set()
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             word = line.strip().lower()
             if word:
                 stopwords.add(word)
-
-    stopwords = stopwords - POLITICAL_WORDS_TO_KEEP
-    return stopwords
+    return stopwords - POLITICAL_WORDS_TO_KEEP
 
 
 STOPWORDS = load_stopwords(STOPWORDS_PATH)
 
 
-def remove_recurrent_noise(text: str) -> str:
+def remove_recurrent_noise(text):
     if not isinstance(text, str):
         return ""
-
     text = text.lower()
 
     patterns = [
@@ -103,10 +102,9 @@ def remove_recurrent_noise(text: str) -> str:
     return text
 
 
-def remove_generic_campaign_phrases(text: str) -> str:
+def remove_generic_campaign_phrases(text):
     if not isinstance(text, str):
         return ""
-
     patterns = [
         r"\bvotez\s+pour\b",
         r"\bje\s+vous\s+demande\b",
@@ -131,46 +129,35 @@ def remove_generic_campaign_phrases(text: str) -> str:
     return text
 
 
-def normalize_text(text: str) -> str:
+def normalize_text(text):
     if not isinstance(text, str):
         return ""
-
     text = re.sub(r"['ʼ`´]", "'", text)
     text = re.sub(r"[–—−]", "-", text)
-
     text = re.sub(r"[^a-zàâäéèêëîïôöùûüçœæ\s'-]", " ", text)
     text = re.sub(r"\b(?![ldjtmnsqc])\w\b", " ", text)
     text = re.sub(r"\s+", " ", text)
-
     return text.strip()
 
 
-def light_clean(text: str) -> str:
+def light_clean(text):
     text = remove_recurrent_noise(text)
     text = remove_generic_campaign_phrases(text)
-    text = normalize_text(text)
-    return text
+    return normalize_text(text)
 
 
-def lemmatize_batch(texts: list[str]) -> list[str]:
+def lemmatize_batch(texts):
     results = []
     for doc in nlp.pipe(texts, batch_size=64):
-        results.append(
-            " ".join(token.lemma_ for token in doc if not token.is_space)
-        )
+        results.append(" ".join(token.lemma_ for token in doc if not token.is_space))
     return results
 
 
-def remove_stopwords(text: str) -> str:
+def remove_stopwords(text):
     if not isinstance(text, str):
         return ""
-
     tokens = text.split()
-    filtered = [
-        token for token in tokens
-        if token not in STOPWORDS and len(token) > 1
-    ]
-    return " ".join(filtered)
+    return " ".join(t for t in tokens if t not in STOPWORDS and len(t) > 1)
 
 
 def main():
@@ -245,10 +232,6 @@ def main():
         f.write("\n")
 
     df_final.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")
-
-    # Figure: token reduction
-
-    import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 

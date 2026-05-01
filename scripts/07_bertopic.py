@@ -62,23 +62,13 @@ RANDOM_STATE = 42
 VECT_MIN_DF = 2
 VECT_MAX_DF = 0.5
 NGRAM_RANGE = (1, 2)
-REDUCE_OUTLIERS = False
+NR_TOPICS = 30
 
 
-def load_stopwords(path: Path) -> list[str]:
-    if not path.exists():
-        print(f"Warning: stopword file not found at {path}, using None.")
-        return None
+def load_stopwords(path):
     with open(path, "r", encoding="utf-8") as f:
         words = [line.strip().lower() for line in f if line.strip()]
     return sorted(set(words))
-
-
-def save_plotly_png(fig, png_path: Path, width: int = 1400, height: int = 800):
-    try:
-        fig.write_image(png_path, width=width, height=height, scale=2)
-    except Exception as e:
-        print(f"PNG export failed for {png_path.name}: {e}")
 
 
 def main():
@@ -86,17 +76,9 @@ def main():
     df = pd.read_csv(CHUNKS_PATH)
     print(f"Chunks loaded: {len(df)}")
 
-    if TEXT_COL not in df.columns:
-        raise ValueError(f"Missing column: {TEXT_COL}")
-
     print("\nLoading embeddings...")
     embeddings = np.load(EMBEDDINGS_PATH)
     print(f"Embeddings shape: {embeddings.shape}")
-
-    if len(df) != embeddings.shape[0]:
-        raise ValueError(
-            f"Mismatch: {len(df)} chunks but {embeddings.shape[0]} embeddings."
-        )
 
     docs = df[TEXT_COL].fillna("").astype(str).tolist()
 
@@ -135,32 +117,10 @@ def main():
 
     print("\nFitting BERTopic...")
     topics, _ = topic_model.fit_transform(docs, embeddings)
+    print(f"Outliers: {sum(t == -1 for t in topics)} / {len(topics)}")
 
-    n_outliers_before = sum(t == -1 for t in topics)
-    print(f"Outliers before reduction: {n_outliers_before} ({100*n_outliers_before/len(topics):.1f}%)")
-
-    if REDUCE_OUTLIERS and n_outliers_before > 0:
-        print("\nReducing outliers (strategy='embeddings')...")
-        topics = topic_model.reduce_outliers(
-            documents=docs,
-            topics=topics,
-            embeddings=embeddings,
-            strategy="embeddings",
-        )
-        n_outliers_after = sum(t == -1 for t in topics)
-        print(f"Outliers after reduction: {n_outliers_after} ({100*n_outliers_after/len(topics):.1f}%)")
-
-        print("Updating topic representations after outlier reduction...")
-        topic_model.update_topics(
-            docs=docs,
-            topics=topics,
-            vectorizer_model=vectorizer_model,
-        )
-
-    topic_model.reduce_topics(docs, nr_topics=30)
+    topic_model.reduce_topics(docs, nr_topics=NR_TOPICS)
     topics = list(topic_model.topics_)
-
-
     df["topic"] = topics
 
     print("\nSaving topic assignments...")
@@ -174,58 +134,26 @@ def main():
 
     print("\nSaving visualizations...")
 
-    try:
-        fig = topic_model.visualize_barchart(top_n_topics=20)
-        save_plotly_png(fig, FIG_DIR / "topic_barchart.png", width=1600, height=1000)
-    except Exception as e:
-        print(f"Could not save topic barchart: {e}")
+    fig = topic_model.visualize_barchart(top_n_topics=20)
+    fig.write_image(FIG_DIR / "topic_barchart.png", width=1600, height=1000, scale=2)
 
-    try:
-        fig = topic_model.visualize_heatmap()
-        save_plotly_png(fig, FIG_DIR / "topic_heatmap.png", width=1200, height=1000)
-    except Exception as e:
-        print(f"Could not save topic heatmap: {e}")
+    fig = topic_model.visualize_heatmap()
+    fig.write_image(FIG_DIR / "topic_heatmap.png", width=1200, height=1000, scale=2)
 
-    try:
-        fig = topic_model.visualize_hierarchy()
-        save_plotly_png(fig, FIG_DIR / "topic_hierarchy.png", width=1400, height=1000)
-    except Exception as e:
-        print(f"Could not save topic hierarchy: {e}")
+    fig = topic_model.visualize_hierarchy()
+    fig.write_image(FIG_DIR / "topic_hierarchy.png", width=1400, height=1000, scale=2)
 
-    try:
-        sample_size = min(5000, len(docs))
-        if len(docs) > sample_size:
-            rng = np.random.default_rng(RANDOM_STATE)
-            sample_idx = rng.choice(len(docs), size=sample_size, replace=False)
-            sample_docs = [docs[i] for i in sample_idx]
-            sample_embeddings = embeddings[sample_idx]
-        else:
-            sample_docs = docs
-            sample_embeddings = embeddings
-        fig = topic_model.visualize_documents(
-            docs=sample_docs,
-            embeddings=sample_embeddings,
-            hide_annotations=True,
-            title=f"Document map ({sample_size} chunks, colored by topic)",
-        )
-        save_plotly_png(fig, FIG_DIR / "topic_documents.png", width=1400, height=900)
-    except Exception as e:
-        print(f"Could not save topic_documents: {e}")
-
-    try:
-        import matplotlib.pyplot as plt
-        sizes = topic_info[topic_info["Topic"] != -1].sort_values("Count", ascending=False).head(30)
-        plt.figure(figsize=(12, 6))
-        plt.bar(range(len(sizes)), sizes["Count"].values, color="#4a7ab5")
-        plt.xticks(range(len(sizes)), sizes["Topic"].astype(int).values, rotation=0, fontsize=8)
-        plt.xlabel("Topic id")
-        plt.ylabel("Number of chunks")
-        plt.title("Top 30 topics by size (chunks)")
-        plt.tight_layout()
-        plt.savefig(FIG_DIR / "topic_sizes.png", dpi=150)
-        plt.close()
-    except Exception as e:
-        print(f"Could not save topic_sizes.png: {e}")
+    import matplotlib.pyplot as plt
+    sizes = topic_info[topic_info["Topic"] != -1].sort_values("Count", ascending=False).head(30)
+    plt.figure(figsize=(12, 6))
+    plt.bar(range(len(sizes)), sizes["Count"].values, color="#4a7ab5")
+    plt.xticks(range(len(sizes)), sizes["Topic"].astype(int).values, rotation=0, fontsize=8)
+    plt.xlabel("Topic id")
+    plt.ylabel("Number of chunks")
+    plt.title("Top 30 topics by size (chunks)")
+    plt.tight_layout()
+    plt.savefig(FIG_DIR / "topic_sizes.png", dpi=150)
+    plt.close()
 
     n_topics = len(set(topics)) - (1 if -1 in topics else 0)
     n_outliers = sum(t == -1 for t in topics)

@@ -1,0 +1,17 @@
+=== EDA SUMMARY (family-level) ===
+
+Documents: 21156
+Top N words: 20
+Keywords: travail, emploi, republique, immigration, securite, europe
+
+=== Family-level distribution ===
+party_family
+other                   4042
+gaullist_right          3101
+socialist_left          3014
+communist_left          3014
+radical_left            2221
+ecologist               1586
+national_right          1571
+liberal_center_right    1523
+unclassified            1084

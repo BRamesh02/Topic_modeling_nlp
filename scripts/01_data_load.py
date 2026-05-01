@@ -34,29 +34,24 @@ OUTPUT_PATH = STEP_DIR / "corpus_joined.csv"
 STATS_PATH = REPORTS_DIR / "data_info.txt"
 
 
-def load_metadata(csv_path: Path) -> pd.DataFrame:
+def load_metadata(csv_path):
     df = pd.read_csv(csv_path, dtype=str)
     df.columns = [c.strip().lower() for c in df.columns]
-
     df = df[df["contexte-election"] == "législatives"].copy()
     df["year"] = df["date"].str[:4]
     df = df[df["year"].isin(YEARS)].copy()
-
     return df
 
 
-def build_id_to_path(text_root: Path) -> dict:
+def build_id_to_path(text_root):
     id_to_path = {}
-
     for year in YEARS:
         year_dir = text_root / year
         if not year_dir.exists():
             print(f"Dossier absent : {year_dir}")
             continue
-
         for p in tqdm(list(year_dir.rglob("*.txt")), desc=f"Indexation {year}"):
             id_to_path[p.stem] = p
-
     return id_to_path
 
 
